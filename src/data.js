@@ -110,3 +110,18 @@ export const INCOMING = [
   { id: 'EFP-0187', kind: 'EFP', sku: 'H100', gpus: 64, region: 'US-East', ic: 'InfiniBand', start: 'JUN27', term: 6, maxBasis: 0.15, closes: '45m', buyer: 'Buyer (blind)', quotes: 2 },
   { id: 'RFQ-2288', kind: 'RFQ', sku: 'H100', gpus: 64, region: 'Any US', ic: 'InfiniBand', start: 'DEC26', term: 6, maxBasis: 0.1, closes: '5h 40m', buyer: 'Buyer (blind)', quotes: 1 },
 ]
+
+// Spread RFQs already on the board. 'other' marks a blind requester the market maker can quote.
+const cp = (sku, m) => curvePx(sku, MONTHS.indexOf(m))
+const sp = (a, b) => roundTick(a - b)
+export const SEED_SPREADS = [
+  { id: 'SPR-301', type: 'Cross-GPU', a: sym('B200', 'JUN27'), b: sym('H100', 'JUN27'), side: 'Buy', qty: 50, ratio: 1, owner: 'ridgeline', by: 'Ridgeline Capital', status: 'done', created: '2026-11-11 09:12', mid: sp(cp('B200', 'JUN27'), cp('H100', 'JUN27')),
+    quotes: [1, 2, 4].map((k, i) => ({ id: 'SQ-' + i, name: ['Lattice Trading', 'MM 2', 'MM 3'][i], px: roundTick(sp(cp('B200', 'JUN27'), cp('H100', 'JUN27')) - 0.06 + k * TICK) })), done: { name: 'Lattice Trading', px: roundTick(sp(cp('B200', 'JUN27'), cp('H100', 'JUN27')) - 0.05), ts: '2026-11-11 09:13', aPx: cp('B200', 'JUN27') - 0.05, bPx: cp('H100', 'JUN27') }, thesis: 'B200 premium to H100 should widen as next-gen demand pulls ahead.' },
+  { id: 'SPR-302', type: 'Calendar', a: sym('H100', 'DEC26'), b: sym('H100', 'JUN27'), side: 'Sell', qty: 120, ratio: 1, owner: 'other', by: 'Buyer (blind)', status: 'open', created: '2026-11-11 11:40', mid: sp(cp('H100', 'DEC26'), cp('H100', 'JUN27')), quotes: [{ id: 'SQ-0', name: 'MM 2', px: roundTick(sp(cp('H100', 'DEC26'), cp('H100', 'JUN27')) - 3 * TICK) }] },
+  { id: 'SPR-303', type: 'Cross-GPU', a: sym('H200', 'MAR27'), b: sym('H100', 'MAR27'), side: 'Buy', qty: 40, ratio: 1, owner: 'other', by: 'Buyer (blind)', status: 'open', created: '2026-11-11 11:52', mid: sp(cp('H200', 'MAR27'), cp('H100', 'MAR27')), quotes: [] },
+]
+
+export const SEED_KEYS = [
+  { id: 'ak_live_7f3c', name: 'Treasury system', scopes: ['read:market', 'read:account', 'trade:futures'], env: 'Production', created: '2026-09-02', last: '2 min ago' },
+  { id: 'ak_test_19ab', name: 'Sandbox', scopes: ['read:market', 'read:account', 'trade:futures', 'request:rfq'], env: 'Test', created: '2026-08-14', last: '3 days ago' },
+]

@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { SKUS, MONTHS, SIZE, TICK, IM_RATE, FEE, INSTRUMENTS, fmt, usd, sym, skuOf, roundTick, contractName } from './data.js'
-import { candles, stats24, book, TF } from './market.js'
+import { candles, stats24, book, TF, simulate, top } from './market.js'
 import { Seg } from './ui.jsx'
 
 const WIDGETS = [['markets', 'Markets'], ['chart', 'Price chart'], ['depth', 'Depth chart'], ['book', 'Order book'], ['ticket', 'Order ticket'], ['bottom', 'Positions & blotter']]
@@ -18,37 +18,47 @@ function saveLayout(w) {
 }
 
 /* ---------- Markets table ---------- */
-function Markets({ marks, focus, setFocus, positions }) {
+const SORTS = [['curve', 'Curve'], ['vol', 'Volume'], ['spread', 'Tightest'], ['depth', 'Deepest']]
+function Markets({ marks, tick, focus, setFocus, positions, flash }) {
   const [sku, setSku] = useState('All')
   const [q, setQ] = useState('')
+  const [exp, setExp] = useState('All')
+  const [sort, setSort] = useState('curve')
   const [held, setHeld] = useState(false)
   const [fav, setFav] = useState([sym('H100', 'JUN27'), sym('B200', 'MAR27')])
   const [favOnly, setFavOnly] = useState(false)
-  const list = INSTRUMENTS.filter((i) => (sku === 'All' || i.sku === sku) && (!q || i.sym.toLowerCase().includes(q.toLowerCase()) || i.m.toLowerCase().includes(q.toLowerCase())) && (!held || positions[i.sym]) && (!favOnly || fav.includes(i.sym)))
+  const rows = INSTRUMENTS.filter((i) => (sku === 'All' || i.sku === sku) && (exp === 'All' || i.i < 3) && (!q || i.sym.toLowerCase().includes(q.toLowerCase()) || i.m.toLowerCase().includes(q.toLowerCase())) && (!held || positions[i.sym]) && (!favOnly || fav.includes(i.sym)))
+    .map((i) => ({ ...i, st: stats24(i.sym, marks[i.sym]), t: top(i.sym, marks[i.sym], tick) }))
+  if (sort === 'vol') rows.sort((x, y) => y.st.vol - x.st.vol)
+  if (sort === 'spread') rows.sort((x, y) => x.t.spread - y.t.spread || y.t.depth - x.t.depth)
+  if (sort === 'depth') rows.sort((x, y) => y.t.depth - x.t.depth)
   return (
     <div className="w w-markets">
-      <div className="w-head"><span>Markets</span><span className="note">{list.length} contracts</span></div>
+      <div className="w-head"><span>Markets</span><span className="note">{rows.length} contracts</span></div>
       <div className="w-tools">
         <input placeholder="Search H1UF, JUN27…" value={q} onChange={(e) => setQ(e.target.value)} />
         <Seg small value={sku} options={['All', ...Object.keys(SKUS)]} onChange={setSku} />
         <div className="row" style={{ gap: 6 }}>
+          <Seg small value={exp} options={[['All', 'All months'], ['Front', 'Front 3']]} onChange={setExp} />
           <button className={'chip-btn' + (held ? ' on' : '')} onClick={() => setHeld(!held)}>Held</button>
-          <button className={'chip-btn' + (favOnly ? ' on' : '')} onClick={() => setFavOnly(!favOnly)}>★ Watchlist</button>
+          <button className={'chip-btn' + (favOnly ? ' on' : '')} onClick={() => setFavOnly(!favOnly)}>★</button>
         </div>
+        <div className="sortby"><span>Sort</span><select className="mini" value={sort} onChange={(e) => setSort(e.target.value)}>{SORTS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></div>
       </div>
       <div className="w-body scroll">
         <table className="dense">
-          <thead><tr><th></th><th>Contract</th><th className="n">Last</th><th className="n">24h</th><th className="n">Vol</th></tr></thead>
+          <thead><tr><th></th><th>Contract</th><th className="n">Bid</th><th className="n">Ask</th><th className="n" title="Spread in ticks ($0.01)">Spr</th><th className="n" title="Contracts on the top 5 levels, both sides">Depth</th></tr></thead>
           <tbody>
-            {list.map((i) => {
-              const st = stats24(i.sym, marks[i.sym])
+            {rows.map((i) => {
+              const ticks = Math.round(i.t.spread / TICK)
               return (
-                <tr key={i.sym} className={'click ' + (i.sym === focus ? 'sel' : '')} onClick={() => setFocus(i.sym)}>
+                <tr key={i.sym} className={'click ' + (i.sym === focus ? 'sel ' : '') + (flash.includes(i.sym) ? 'flash' : '')} onClick={() => setFocus(i.sym)}>
                   <td><button className={'star' + (fav.includes(i.sym) ? ' on' : '')} onClick={(e) => { e.stopPropagation(); setFav(fav.includes(i.sym) ? fav.filter((x) => x !== i.sym) : [...fav, i.sym]) }} aria-label="Watchlist">★</button></td>
-                  <td><b className="mono">{i.sym}</b>{positions[i.sym] && <span className="dot" title="Held" />}<div className="note">{i.sku} · {i.m}</div></td>
-                  <td className="n">{fmt(marks[i.sym])}</td>
-                  <td className={'n ' + (st.chg >= 0 ? 'up' : 'dn')}>{st.chg >= 0 ? '+' : ''}{st.chg.toFixed(2)}%</td>
-                  <td className="n">{st.vol.toLocaleString()}</td>
+                  <td><b className="mono">{i.sym}</b>{positions[i.sym] && <span className="dot" title="Held" />}<div className={'note ' + (i.st.chg >= 0 ? 'up' : 'dn')}>{fmt(marks[i.sym])} {i.st.chg >= 0 ? '+' : ''}{i.st.chg.toFixed(2)}%</div></td>
+                  <td className="n up">{fmt(i.t.bid.px)}</td>
+                  <td className="n dn">{fmt(i.t.ask.px)}</td>
+                  <td className={'n ' + (ticks > 4 ? 'warn-t' : '')}>{ticks}</td>
+                  <td className="n"><span className="liq"><i style={{ width: Math.min(100, i.t.depth / 6) + '%' }} /></span>{i.t.depth}</td>
                 </tr>
               )
             })}
@@ -172,22 +182,24 @@ function Depth({ focus, marks, tick }) {
 }
 
 /* ---------- Order book + trades ---------- */
-function Book({ focus, marks, tick, tape, onPx }) {
+function Book({ focus, marks, tick, tape, onPx, orders }) {
   const [tab, setTab] = useState('Book')
   const { bids, asks } = book(focus, marks[focus], tick, 11)
   const max = Math.max(...bids.map((b) => b.q), ...asks.map((a) => a.q))
   const trades = tape.filter((t) => t.sym === focus).slice(0, 18)
+  const mine = (orders || []).filter((o) => o.sym === focus && o.type === 'Limit')
+  const tag = (px) => { const n = mine.filter((o) => Math.abs(o.px - px) < 1e-9).reduce((a, o) => a + o.qty, 0); return n ? <span className="mine">yours {n}</span> : null }
   return (
     <div className="w w-book">
-      <div className="w-head"><Seg small value={tab} options={['Book', 'Trades']} onChange={setTab} /><span className="note">spread {fmt(2 * TICK)}</span></div>
+      <div className="w-head"><Seg small value={tab} options={['Book', 'Trades']} onChange={setTab} /><span className="note">spread {fmt(asks[0].px - bids[0].px)} · {Math.round((asks[0].px - bids[0].px) / TICK)} ticks</span></div>
       <div className="w-body">
         {tab === 'Book' ? (
           <table className="dense book">
             <thead><tr><th>Price</th><th className="n">Size</th><th className="n">GPU-hrs</th></tr></thead>
             <tbody>
-              {[...asks].reverse().map((a) => <tr key={'a' + a.px} className="ask click" onClick={() => onPx(a.px)}><td className="depthbar"><i style={{ width: `${(a.q / max) * 100}%` }} />{fmt(a.px)}</td><td className="n">{a.q}</td><td className="n">{(a.q * SIZE).toLocaleString()}</td></tr>)}
-              <tr className="mid"><td colSpan={3}>{fmt(marks[focus])} <span className="note">index {fmt(SKUS[skuOf(focus)].index)}</span></td></tr>
-              {bids.map((b) => <tr key={'b' + b.px} className="bid click" onClick={() => onPx(b.px)}><td className="depthbar"><i style={{ width: `${(b.q / max) * 100}%` }} />{fmt(b.px)}</td><td className="n">{b.q}</td><td className="n">{(b.q * SIZE).toLocaleString()}</td></tr>)}
+              {[...asks].reverse().map((a) => <tr key={'a' + a.px} className="ask click" onClick={() => onPx(a.px)}><td className="depthbar"><i style={{ width: `${(a.q / max) * 100}%` }} />{fmt(a.px)}</td><td className="n">{tag(a.px)}{a.q}</td><td className="n">{(a.q * SIZE).toLocaleString()}</td></tr>)}
+              <tr className="mid"><td colSpan={3}>{fmt(marks[focus])} <span className="note">mid · index {fmt(SKUS[skuOf(focus)].index)}</span>{mine.filter((o) => o.px < asks[0].px - 1e-9 && o.px > bids[0].px + 1e-9).map((o) => <span key={o.id} className="mine">yours {o.side.toLowerCase()} {o.qty} @ {fmt(o.px)}</span>)}</td></tr>
+              {bids.map((b) => <tr key={'b' + b.px} className="bid click" onClick={() => onPx(b.px)}><td className="depthbar"><i style={{ width: `${(b.q / max) * 100}%` }} />{fmt(b.px)}</td><td className="n">{tag(b.px)}{b.q}</td><td className="n">{(b.q * SIZE).toLocaleString()}</td></tr>)}
             </tbody>
           </table>
         ) : (
@@ -201,48 +213,8 @@ function Book({ focus, marks, tick, tape, onPx }) {
   )
 }
 
-/* ---------- Order ticket ---------- */
-function Ticket({ focus, marks, placeOrder, px, setPx, positions, askQuote }) {
-  const [side, setSide] = useState('Buy')
-  const [type, setType] = useState('Limit')
-  const [qty, setQty] = useState(16)
-  const [tif, setTif] = useState('GTC')
-  const [msg, setMsg] = useState(null)
-  const mid = marks[focus]
-  const price = type === 'Market' ? roundTick(mid + (side === 'Buy' ? TICK : -TICK)) : px !== '' ? Number(px) : roundTick(mid + (side === 'Buy' ? TICK : -TICK))
-  const q = Math.max(1, Math.round(Number(qty) || 0))
-  const notional = q * SIZE * price
-  const pos = positions[focus]
-  const submit = () => setMsg(placeOrder({ sym: focus, side, qty: q, type, px: price, tif }))
-  return (
-    <div className="w w-ticket">
-      <div className="w-head"><span>Order ticket</span><span className="note mono">{focus}</span></div>
-      <div className="w-body stack" style={{ gap: 10 }}>
-        <div className="sides"><button className={side === 'Buy' ? 'on buy' : ''} onClick={() => setSide('Buy')}>Buy</button><button className={side === 'Sell' ? 'on sell' : ''} onClick={() => setSide('Sell')}>Sell</button></div>
-        <Seg small value={type} options={['Limit', 'Market', 'Stop']} onChange={setType} />
-        <div className="form">
-          <label>Contracts<input type="number" min="1" value={qty} onChange={(e) => setQty(e.target.value)} /></label>
-          <label>{type === 'Stop' ? 'Trigger' : 'Price'} $/GPU-hr<input disabled={type === 'Market'} placeholder={fmt(price)} value={type === 'Market' ? '' : px} onChange={(e) => setPx(e.target.value)} /></label>
-        </div>
-        <div className="row" style={{ gap: 6 }}>{[8, 16, 64, 128].map((n) => <button key={n} className="chip-btn" onClick={() => setQty(n)}>{n}</button>)}<span className="note">contracts</span></div>
-        {type !== 'Market' && <Seg small value={tif} options={['GTC', 'Day', 'IOC']} onChange={setTif} />}
-        <div className="kv"><span>GPU-hours</span><b>{(q * SIZE).toLocaleString()}</b></div>
-        <div className="kv"><span>Notional</span><b>{usd(notional)}</b></div>
-        <div className="kv"><span>Initial margin (est.)</span><b>{usd(notional * IM_RATE)}</b></div>
-        <div className="kv"><span>Fee (est.)</span><b>{usd(q * SIZE * FEE)}</b></div>
-        {pos && <div className="kv"><span>Current position</span><b className={pos.qty > 0 ? 'up' : 'dn'}>{pos.qty > 0 ? '+' : ''}{pos.qty} @ {fmt(pos.avg)}</b></div>}
-        <button className={'btn ' + (side === 'Buy' ? 'buy' : 'sell')} onClick={submit}>{side} {q} {focus}</button>
-        {msg && <div className={'callout ' + (msg.ok ? 'good' : '')}>{msg.msg}</div>}
-        <button className="link" onClick={askQuote}>Not on the screen? Ask for a quote (RFQ, block or flex) →</button>
-        <span className="note">{contractName(skuOf(focus), INSTRUMENTS.find((i) => i.sym === focus).m)}. Cash settles to Signal Settlement (monthly index average).</span>
-      </div>
-    </div>
-  )
-}
-
 /* ---------- Bottom: positions, orders, closed, blotter ---------- */
-function Bottom({ me, acct, marks, placeOrder, cancelOrder, setFocus, setTab, setPrefill }) {
-  const [tab, setBTab] = useState('Positions')
+function Bottom({ me, acct, marks, placeOrder, cancelOrder, setFocus, setTab, setPrefill, btab: tab, setBTab, flash }) {
   const [sku, setSku] = useState('All')
   const [venue, setVenue] = useState('All')
   const [side, setSide] = useState('All')
@@ -274,7 +246,7 @@ function Bottom({ me, acct, marks, placeOrder, cancelOrder, setFocus, setTab, se
               {pos.length ? pos.map(([k, p]) => {
                 const pnl = p.qty * SIZE * (marks[k] - p.avg)
                 return (
-                  <tr key={k}>
+                  <tr key={k} className={flash.includes(k) ? 'flash' : ''}>
                     <td className="click" onClick={() => setFocus(k)}><b className="mono">{k}</b></td>
                     <td className={'n ' + (p.qty > 0 ? 'up' : 'dn')}>{p.qty > 0 ? '+' : ''}{p.qty}</td>
                     <td className="n">{(p.qty * SIZE).toLocaleString()}</td>
@@ -293,8 +265,8 @@ function Bottom({ me, acct, marks, placeOrder, cancelOrder, setFocus, setTab, se
         )}
         {tab === 'Open orders' && (
           <table className="dense">
-            <thead><tr><th>Time</th><th>Contract</th><th>Side</th><th>Type</th><th className="n">Qty</th><th className="n">Price</th><th>TIF</th><th></th></tr></thead>
-            <tbody>{orders.length ? orders.map((o) => <tr key={o.id}><td className="mono note">{o.ts}</td><td className="mono">{o.sym}</td><td className={o.side === 'Buy' ? 'up' : 'dn'}>{o.side}</td><td>{o.type}</td><td className="n">{o.qty}</td><td className="n">{fmt(o.px)}</td><td>{o.tif}</td><td className="actions"><button className="chip-btn" onClick={() => cancelOrder(o.id)}>Cancel</button></td></tr>) : <tr><td colSpan={8} className="note">No working orders. Place a limit away from the market to see one here.</td></tr>}</tbody>
+            <thead><tr><th>Time</th><th>Order</th><th>Contract</th><th>Side</th><th>Type</th><th className="n">Working</th><th className="n">Filled</th><th className="n">Price</th><th>TIF</th><th>Status</th><th></th></tr></thead>
+            <tbody>{orders.length ? orders.map((o) => <tr key={o.id} className={flash.includes(o.sym) ? 'flash' : ''}><td className="mono note">{o.ts}</td><td className="mono note">{o.id}</td><td className="mono">{o.sym}</td><td className={o.side === 'Buy' ? 'up' : 'dn'}>{o.side}</td><td>{o.type}</td><td className="n">{o.qty}</td><td className="n">{o.done || 0}/{o.orig || o.qty}</td><td className="n">{fmt(o.px)}</td><td>{o.tif}</td><td><span className={'pill ' + (o.done ? 'warn' : 'muted')}>{o.status || 'Working'}</span></td><td className="actions"><button className="chip-btn" onClick={() => cancelOrder(o.id)}>Cancel</button></td></tr>) : <tr><td colSpan={11} className="note">No working orders. Place a limit away from the market to see one here.</td></tr>}</tbody>
           </table>
         )}
         {tab === 'Closed & settled' && (
@@ -305,8 +277,8 @@ function Bottom({ me, acct, marks, placeOrder, cancelOrder, setFocus, setTab, se
         )}
         {tab === 'Trade blotter' && (
           <table className="dense">
-            <thead><tr><th>Time</th><th>Fill ID</th><th>Contract</th><th>Side</th><th className="n">Qty</th><th className="n">Price</th><th>Venue</th><th>Clearing</th></tr></thead>
-            <tbody>{fills.map((f) => <tr key={f.id}><td className="mono note">{f.ts}</td><td className="mono note">{f.id}</td><td className="mono">{f.sym}</td><td className={f.side === 'Buy' ? 'up' : 'dn'}>{f.side}</td><td className="n">{f.qty}</td><td className="n">{fmt(f.px)}</td><td>{f.venue}</td><td><span className="pill good">{f.status}</span></td></tr>)}</tbody>
+            <thead><tr><th>Time</th><th>Fill ID</th><th>Order</th><th>Contract</th><th>Side</th><th className="n">Qty</th><th className="n">Price</th><th>Venue</th><th>Clearing</th></tr></thead>
+            <tbody>{fills.map((f) => <tr key={f.id} className={flash.includes(f.sym) && f.ts === fills[0].ts ? 'flash' : ''}><td className="mono note">{f.ts}</td><td className="mono note">{f.id}</td><td className="mono note">{f.order || '—'}</td><td className="mono">{f.sym}</td><td className={f.side === 'Buy' ? 'up' : 'dn'}>{f.side}</td><td className="n">{f.qty}</td><td className="n">{fmt(f.px)}</td><td>{f.venue}</td><td><span className="pill good">{f.status}</span></td></tr>)}</tbody>
           </table>
         )}
       </div>
@@ -320,15 +292,20 @@ export default function Trade(props) {
   const [w, setW] = useState(loadLayout)
   const [open, setOpen] = useState(false)
   const [px, setPx] = useState('')
+  const [btab, setBTab] = useState('Positions')
+  const [flash, setFlash] = useState([])
+  useEffect(() => { if (!flash.length) return; const t = setTimeout(() => setFlash([]), 1800); return () => clearTimeout(t) }, [flash])
+  const onExec = (syms) => { setFlash(syms); setBTab((t) => (t === 'Closed & settled' ? 'Positions' : t)) }
   const set = (nw) => { setW(nw); saveLayout(nw) }
   const ins = INSTRUMENTS.find((i) => i.sym === focus)
   const st = stats24(focus, marks[focus])
+  const tb = top(focus, marks[focus], tick)
   const idx = SKUS[ins.sku].index
   const preset = Object.entries(PRESETS).find(([, p]) => WIDGETS.every(([k]) => p.w[k] === w[k]))?.[0] || 'custom'
   const pickFocus = (s) => { setFocus(s); setPx('') }
   const center = w.chart || w.depth
   const right = w.book || w.ticket
-  const cols = [w.markets && '300px', center && 'minmax(0,1fr)', w.book && (center ? '290px' : 'minmax(0,1fr)'), w.ticket && '300px'].filter(Boolean).join(' ')
+  const cols = [w.markets && '340px', center && 'minmax(0,1fr)', w.book && (center ? '290px' : 'minmax(0,1fr)'), w.ticket && '300px'].filter(Boolean).join(' ')
 
   return (
     <div className="trade">
@@ -340,12 +317,15 @@ export default function Trade(props) {
           <span className="note">{contractName(ins.sku, ins.m)}</span>
         </div>
         <div className="inst-stats">
+          <div><span>Bid</span><b className="up">{fmt(tb.bid.px)} <small>×{tb.bid.q}</small></b></div>
+          <div><span>Ask</span><b className="dn">{fmt(tb.ask.px)} <small>×{tb.ask.q}</small></b></div>
+          <div><span>Spread</span><b>{Math.round(tb.spread / TICK)} ticks</b></div>
+          <div><span>Depth (5 lvls)</span><b>{tb.depth.toLocaleString()}</b></div>
           <div><span>Mark</span><b className="cream">{fmt(marks[focus])}</b></div>
           <div><span>24h</span><b className={st.chg >= 0 ? 'up' : 'dn'}>{st.chg >= 0 ? '+' : ''}{st.chg.toFixed(2)}%</b></div>
           <div><span>Index</span><b>{fmt(idx)}</b></div>
           <div><span>Basis</span><b className={marks[focus] >= idx ? 'up' : 'dn'}>{marks[focus] >= idx ? '+' : ''}{fmt(marks[focus] - idx)}</b></div>
           <div><span>24h vol</span><b>{st.vol.toLocaleString()}</b></div>
-          <div><span>Open int.</span><b>{st.oi.toLocaleString()}</b></div>
           <div><span>Settles</span><b>Signal avg, {ins.m.slice(0, 3)} 20{ins.m.slice(3)}</b></div>
         </div>
         <div className="row" style={{ gap: 8, position: 'relative' }}>
@@ -362,13 +342,208 @@ export default function Trade(props) {
 
       {(w.markets || center || right) && (
         <div className="tgrid" style={{ gridTemplateColumns: cols }}>
-          {w.markets && <Markets marks={marks} focus={focus} setFocus={pickFocus} positions={acct.positions} />}
+          {w.markets && <Markets marks={marks} tick={tick} focus={focus} setFocus={pickFocus} positions={acct.positions} flash={flash} />}
           {center && <div className="col">{w.chart && <Chart focus={focus} marks={marks} positions={acct.positions} />}{w.depth && <Depth focus={focus} marks={marks} tick={tick} />}</div>}
-          {w.book && <div className="col"><Book focus={focus} marks={marks} tick={tick} tape={tape} onPx={(p) => setPx(fmt(p))} /></div>}
-          {w.ticket && <div className="col"><Ticket focus={focus} marks={marks} placeOrder={placeOrder} px={px} setPx={setPx} positions={acct.positions} askQuote={() => { props.setPrefill({ sym: focus }); props.setTab('request') }} /></div>}
+          {w.book && <div className="col"><Book focus={focus} marks={marks} tick={tick} tape={tape} onPx={(p) => setPx(fmt(p))} orders={acct.orders} /></div>}
+          {w.ticket && <div className="col"><Ticket focus={focus} marks={marks} tick={tick} placeOrder={placeOrder} px={px} setPx={setPx} positions={acct.positions} onExec={onExec} setBTab={setBTab} setFocus={pickFocus} prefill={props.prefill} setPrefill={props.setPrefill} askQuote={() => { props.setPrefill({ sym: focus }); props.setTab('request') }} /></div>}
         </div>
       )}
-      {w.bottom && <Bottom {...props} setFocus={pickFocus} />}
+      {w.bottom && <Bottom {...props} setFocus={pickFocus} btab={btab} setBTab={setBTab} flash={flash} />}
+    </div>
+  )
+}
+
+/* ---------- Order ticket: single or strip, review, execution receipt, block RFQ ---------- */
+const STATUS = ['Accepted', 'Filled', 'Sent to FCM', 'Cleared by DCO']
+
+function loadSkip() { try { return localStorage.getItem('cdx-skip-review') === '1' } catch { return false } }
+function saveSkip(v) { try { localStorage.setItem('cdx-skip-review', v ? '1' : '0') } catch { /* storage unavailable */ } }
+
+function effect(pos, side, q) {
+  const cur = pos?.qty || 0, d = side === 'Buy' ? q : -q, n = cur + d
+  if (!cur) return 'Opens'
+  if (Math.sign(cur) === Math.sign(d)) return 'Adds'
+  if (n === 0) return 'Closes'
+  return Math.sign(n) === Math.sign(cur) ? 'Reduces' : 'Flips'
+}
+
+function Ticket({ focus, setFocus, marks, tick, placeOrder, px, setPx, positions, onExec, setBTab, askQuote, prefill, setPrefill }) {
+  const pf = prefill?.strip || prefill?.rfq
+  const [mode, setMode] = useState(prefill?.strip ? 'Strip' : prefill?.rfq ? 'RFQ' : 'Single')
+  const [side, setSide] = useState(pf?.side || 'Buy')
+  const [type, setType] = useState('Limit')
+  const [qty, setQty] = useState(pf?.qty || 16)
+  const [tif, setTif] = useState('GTC')
+  const [n, setN] = useState(prefill?.strip?.n || 6)
+  useEffect(() => {
+    if (prefill?.strip) setFocus(sym(prefill.strip.sku, prefill.strip.from))
+    if (pf) setPrefill(null)
+  }, [])
+  const [thru, setThru] = useState(0) // strip limit: ticks through the best price
+  const [review, setReview] = useState(null)
+  const [receipt, setReceipt] = useState(null)
+  const [rfq, setRfq] = useState(null)
+  const [skip, setSkip] = useState(loadSkip)
+  const ins = INSTRUMENTS.find((i) => i.sym === focus)
+  const mid = marks[focus]
+  const q = Math.max(1, Math.round(Number(qty) || 0))
+  const sgn = side === 'Buy' ? 1 : -1
+  const touch = (s) => { const t = top(s, marks[s], tick, 1); return side === 'Buy' ? t.ask.px : t.bid.px }
+  const singlePx = type === 'Market' ? touch(focus) : px !== '' ? Number(px) : touch(focus)
+  const stripSyms = MONTHS.slice(ins.i, ins.i + n).map((m) => sym(ins.sku, m))
+
+  const legs = () => (mode !== 'Strip' ? [{ sym: focus, qty: q, px: singlePx }] : stripSyms.map((s) => ({ sym: s, qty: q, px: roundTick(touch(s) + sgn * thru * TICK) })))
+  const plan = () => legs().map((l) => {
+    const sim = type === 'Stop' ? { fills: [], filled: 0, avg: 0, left: l.qty, slip: 0 } : simulate(l.sym, marks[l.sym], tick, side, l.qty, mode === 'Strip' ? type === 'Market' ? 'Market' : 'Limit' : type, l.px)
+    return { ...l, sim, mid: marks[l.sym], eff: effect(positions[l.sym], side, l.qty) }
+  })
+
+  const execute = (p, venue) => {
+    const execs = p.map((l) => placeOrder({ sym: l.sym, side, qty: l.qty, type: venue === 'Block' ? 'Market' : mode === 'Strip' && type === 'Stop' ? 'Limit' : type, px: venue === 'Block' ? l.blockPx : l.px, tif, venue }))
+    setReview(null); setRfq(null)
+    setReceipt({ execs, stage: 0, venue })
+    onExec(p.map((l) => l.sym))
+    ;[1, 2, 3].forEach((k) => setTimeout(() => setReceipt((r) => (r ? { ...r, stage: Math.max(r.stage, k) } : r)), 450 * k))
+  }
+  const submit = () => { const p = plan(); if (skip) execute(p); else setReview(p) }
+
+  if (receipt) {
+    const e = receipt.execs
+    const filled = e.reduce((a, x) => a + x.filled, 0), rest = e.reduce((a, x) => a + x.rest, 0), cancelled = e.reduce((a, x) => a + x.cancelled, 0)
+    const avg = filled ? e.reduce((a, x) => a + x.avg * x.filled, 0) / filled : 0
+    return (
+      <div className="w w-ticket">
+        <div className="w-head"><span>Execution {receipt.venue === 'Block' ? '· block' : ''}</span><span className="note mono">{e[0].ts}</span></div>
+        <div className="w-body stack" style={{ gap: 12 }}>
+          <ol className="status">{STATUS.map((s, i) => <li key={s} className={!filled && i > 0 ? 'skip' : i <= receipt.stage ? 'done' : ''}>{s}</li>)}</ol>
+          <div className="receipt-head">
+            <b className={side === 'Buy' ? 'up' : 'dn'}>{side} {filled} of {e.reduce((a, x) => a + x.qty, 0)}</b>
+            <span className="mono">avg {filled ? fmt(avg, 3) : '—'}</span>
+          </div>
+          {e.map((x) => (
+            <div key={x.id} className="leg">
+              <div className="row between"><b className="mono">{x.sym}</b><span className="note">{x.id} · {x.venue}</span></div>
+              {x.fills.map((f, i) => <div key={i} className="kv"><span>{f.q} @ {fmt(f.px)}</span><b>{(f.q * SIZE).toLocaleString()} GPU-hrs</b></div>)}
+              {x.rest > 0 && <div className="kv"><span className="warn-t">{x.rest} resting @ {fmt(x.fills.length ? x.fills.at(-1).px : x.avg || 0)}{' '}</span><b className="warn-t">{x.filled ? 'partially filled' : 'working'}</b></div>}
+              {x.cancelled > 0 && <div className="kv"><span className="dn">{x.cancelled} cancelled</span><b className="dn">{x.type === 'Market' ? 'book exhausted' : 'IOC remainder'}</b></div>}
+            </div>
+          ))}
+          {filled > 0 && <div className="kv"><span>Notional</span><b>{usd(filled * SIZE * avg)}</b></div>}
+          {rest > 0 && <div className="callout">The rest is working on the book. It fills if the market reaches your price, or cancel it in Open orders.</div>}
+          {cancelled > 0 && <div className="callout crit">{cancelled} contracts did not trade. For size, ask for a block quote.</div>}
+          <div className="row">
+            <button className="btn" onClick={() => setReceipt(null)}>New order</button>
+            <button className="btn ghost" onClick={() => setBTab(rest ? 'Open orders' : 'Trade blotter')}>{rest ? 'Open orders' : 'View in blotter'}</button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (rfq) return <BlockPanel rfq={rfq} setRfq={setRfq} side={side} marks={marks} execute={execute} />
+
+  if (review) {
+    const tot = review.reduce((a, l) => a + l.qty, 0)
+    const notional = review.reduce((a, l) => a + l.qty * SIZE * (l.sim.filled ? l.sim.avg : l.px), 0)
+    const imNow = Object.entries(positions).reduce((a, [k, p]) => a + Math.abs(p.qty) * SIZE * marks[k] * IM_RATE, 0)
+    const imAfter = imNow + review.reduce((a, l) => { const c = positions[l.sym]?.qty || 0, nq = c + sgn * l.qty; return a + (Math.abs(nq) - Math.abs(c)) * SIZE * l.mid * IM_RATE }, 0)
+    const big = review.some((l) => l.sim.left > 0 || l.sim.slip > 3 * TICK + 1e-9)
+    return (
+      <div className="w w-ticket">
+        <div className="w-head"><span>Review order</span><span className="note">{review.length > 1 ? `strip · ${review.length} contracts` : 'single'}</span></div>
+        <div className="w-body stack" style={{ gap: 10 }}>
+          <table className="dense">
+            <thead><tr><th>Contract</th><th className="n">Qty</th><th className="n">Est. avg</th><th className="n">Fills now</th></tr></thead>
+            <tbody>{review.map((l) => (
+              <tr key={l.sym}><td className="mono">{l.sym}<div className="note">{type === 'Market' ? 'Market' : 'Limit ' + fmt(l.px)} · {l.eff}</div></td><td className={'n ' + (side === 'Buy' ? 'up' : 'dn')}>{sgn > 0 ? '+' : '-'}{l.qty}</td><td className="n">{l.sim.filled ? fmt(l.sim.avg, 3) : '—'}</td><td className={'n ' + (l.sim.left ? 'warn-t' : '')}>{l.sim.filled}/{l.qty}</td></tr>
+            ))}</tbody>
+          </table>
+          <div className="kv"><span>Total</span><b>{tot} contracts · {(tot * SIZE).toLocaleString()} GPU-hrs</b></div>
+          <div className="kv"><span>Notional (est.)</span><b>{usd(notional)}</b></div>
+          <div className="kv"><span>Slippage vs mid (est.)</span><b>{usd(review.reduce((a, l) => a + l.sim.filled * SIZE * l.sim.slip, 0))}</b></div>
+          <div className="kv"><span>Initial margin</span><b>{usd(imNow)} → {usd(imAfter)}</b></div>
+          <div className="kv"><span>Fee (est.)</span><b>{usd(tot * SIZE * FEE)}</b></div>
+          {review.some((l) => l.sim.left > 0) && type !== 'Market' && tif !== 'IOC' && <div className="note">Unfilled size rests on the book as a working order (partial fill).</div>}
+          {big && (
+            <div className="callout">
+              <b>Large for the screen.</b> Part of this would {type === 'Market' ? 'run out of displayed depth' : 'not fill now'} or slip more than 3 ticks. A block quote from market makers may price it better.
+              <div style={{ marginTop: 8 }}><button className="btn ghost" onClick={() => { setRfq({ legs: review }); setReview(null) }}>Get a block quote instead →</button></div>
+            </div>
+          )}
+          <div className="row">
+            <button className={'btn ' + (side === 'Buy' ? 'buy' : 'sell')} onClick={() => execute(review)}>Confirm {side.toLowerCase()}</button>
+            <button className="btn ghost" onClick={() => setReview(null)}>Edit</button>
+          </div>
+          <label className="check"><input type="checkbox" checked={skip} onChange={() => { setSkip(!skip); saveSkip(!skip) }} />Skip review next time</label>
+        </div>
+      </div>
+    )
+  }
+
+  const pos = positions[focus]
+  const notional = q * SIZE * singlePx * (mode === 'Strip' ? n : 1)
+  return (
+    <div className="w w-ticket">
+      <div className="w-head"><Seg small value={mode} options={['Single', 'Strip', ['RFQ', 'Quote']]} onChange={setMode} /><span className="note mono">{mode === 'Strip' ? `${stripSyms[0]} → ${stripSyms.at(-1).split(' ')[1]}` : focus}</span></div>
+      <div className="w-body stack" style={{ gap: 10 }}>
+        <div className="sides"><button className={side === 'Buy' ? 'on buy' : ''} onClick={() => setSide('Buy')}>Buy</button><button className={side === 'Sell' ? 'on sell' : ''} onClick={() => setSide('Sell')}>Sell</button></div>
+        {mode !== 'RFQ' && <Seg small value={type} options={mode === 'Strip' ? ['Limit', 'Market'] : ['Limit', 'Market', 'Stop']} onChange={setType} />}
+        {mode === 'RFQ' && <p className="note" style={{ margin: 0 }}>Ask market makers for a firm price on this contract, at any size, even with an empty book. Anonymous; 25+ contracts trade as a block and print after execution.</p>}
+        <div className="form">
+          <label>{mode === 'Strip' ? 'Contracts per month' : 'Contracts'}<input type="number" min="1" value={qty} onChange={(e) => setQty(e.target.value)} /></label>
+          {mode === 'RFQ' ? <label>Screen mid<input disabled value={fmt(mid)} /></label> : mode === 'Single'
+            ? <label>{type === 'Stop' ? 'Trigger' : 'Price'} $/GPU-hr<input disabled={type === 'Market'} placeholder={fmt(singlePx)} value={type === 'Market' ? '' : px} onChange={(e) => setPx(e.target.value)} /></label>
+            : <label>Months<select value={n} onChange={(e) => setN(Number(e.target.value))}>{[2, 3, 6, 9, 12].filter((k) => ins.i + k <= 12).map((k) => <option key={k}>{k}</option>)}</select></label>}
+        </div>
+        {mode === 'Strip' && type === 'Limit' && <label>Limit per leg: ticks through best price<input type="number" min="0" max="10" value={thru} onChange={(e) => setThru(Number(e.target.value))} /></label>}
+        {mode === 'Strip' && <div className="strip">{stripSyms.map((s) => <span key={s}><b className="mono">{s.split(' ')[1]}</b>{fmt(marks[s])}</span>)}</div>}
+        <div className="row" style={{ gap: 6 }}>{[8, 16, 64, 128].map((k) => <button key={k} className="chip-btn" onClick={() => setQty(k)}>{k}</button>)}<span className="note">contracts</span></div>
+        {type !== 'Market' && mode !== 'RFQ' && <Seg small value={tif} options={['GTC', 'Day', 'IOC']} onChange={setTif} />}
+        <div className="kv"><span>GPU-hours</span><b>{(q * SIZE * (mode === 'Strip' ? n : 1)).toLocaleString()}</b></div>
+        <div className="kv"><span>Notional (approx.)</span><b>{usd(notional)}</b></div>
+        {pos && mode === 'Single' && <div className="kv"><span>Current position</span><b className={pos.qty > 0 ? 'up' : 'dn'}>{pos.qty > 0 ? '+' : ''}{pos.qty} @ {fmt(pos.avg)}</b></div>}
+        {mode === 'RFQ'
+          ? <button className={'btn ' + (side === 'Buy' ? 'buy' : 'sell')} onClick={() => setRfq({ legs: plan() })}>Request quotes · {side.toLowerCase()} {q}</button>
+          : <><button className={'btn ' + (side === 'Buy' ? 'buy' : 'sell')} onClick={submit}>{skip ? '' : 'Review '}{side.toLowerCase()} {mode === 'Strip' ? `${n}-month strip` : `${q} ${focus}`}</button>
+        <button className="btn ghost" onClick={() => setRfq({ legs: plan() })}>Request a block quote</button></>}
+        <button className="link" onClick={askQuote}>Trade this against another GPU or month? Spread RFQ →</button>
+        <span className="note">{mode === 'RFQ' ? 'Quotes are firm for 15 seconds and compared with the screen.' : mode === 'Strip' ? 'A strip sends one order per month. Each is a separate contract on the order book.' : `${contractName(ins.sku, ins.m)}. Cash settles to Signal Settlement.`}</span>
+      </div>
+    </div>
+  )
+}
+
+// Block RFQ inside the ticket: same legs, quotes from market makers, compared with the screen.
+function BlockPanel({ rfq, setRfq, side, marks, execute }) {
+  const [quotes, setQuotes] = useState([])
+  const sgn = side === 'Buy' ? 1 : -1
+  const tot = rfq.legs.reduce((a, l) => a + l.qty, 0)
+  const screen = rfq.legs.reduce((a, l) => a + l.qty * (l.sim.filled ? (l.sim.avg * l.sim.filled + (l.sim.left ? (l.px + sgn * TICK * 3) * l.sim.left : 0)) / l.qty : l.px + sgn * TICK * 3), 0) / tot
+  React.useEffect(() => {
+    const t = ['Lattice Trading', 'MM 2', 'MM 3'].map((name, i) => setTimeout(() => setQuotes((qs) => [...qs, { name, off: [1, 2, 2][i] + (i === 2 ? 1 : 0) }].sort((a, b) => a.off - b.off)), 700 * (i + 1)))
+    return () => t.forEach(clearTimeout)
+  }, [])
+  const priced = (qt) => rfq.legs.map((l) => ({ ...l, blockPx: roundTick(l.mid + sgn * qt.off * TICK) }))
+  const avgOf = (qt) => priced(qt).reduce((a, l) => a + l.blockPx * l.qty, 0) / tot
+  return (
+    <div className="w w-ticket">
+      <div className="w-head"><span>Block quote</span><span className="note">{rfq.legs.length > 1 ? `strip · ${rfq.legs.length} legs` : rfq.legs[0].sym} · {side.toLowerCase()} {tot}</span></div>
+      <div className="w-body stack" style={{ gap: 10 }}>
+        <p className="note" style={{ margin: 0 }}>Anonymous request to market makers. Quotes are firm for 15 seconds and trade off the order book, then print to the tape.</p>
+        <div className="kv"><span>Screen estimate (walk the book)</span><b>{fmt(screen, 3)}</b></div>
+        {quotes.length === 0 && <span className="note">Waiting for quotes…</span>}
+        {quotes.map((qt, i) => {
+          const a = avgOf(qt), save = (screen - a) * sgn * tot * SIZE
+          return (
+            <div key={qt.name} className="quote-row">
+              <span>{qt.name}</span><b className="mono cream">{fmt(a, 3)}</b>
+              <span className={save >= 0 ? 'up note' : 'dn note'}>{save >= 0 ? 'saves ' : 'costs '}{usd(Math.abs(save))}</span>
+              <button className="btn" onClick={() => execute(priced(qt), 'Block')}>{i === 0 ? 'Hit best' : 'Hit'}</button>
+            </div>
+          )
+        })}
+        <button className="btn ghost" onClick={() => setRfq(null)}>Back to order</button>
+      </div>
     </div>
   )
 }

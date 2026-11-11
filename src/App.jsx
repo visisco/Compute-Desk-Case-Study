@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { ACCOUNTS, SEED, SKUS, MONTHS, SIZE, TICK, IM_RATE, INSTRUMENTS, SEED_CONTRACTS, INCOMING, PROVIDERS, curvePx, sym, roundTick, fmt, scoreQuote } from './data.js'
+import { ACCOUNTS, SEED, SKUS, MONTHS, SIZE, TICK, IM_RATE, INSTRUMENTS, SEED_CONTRACTS, INCOMING, PROVIDERS, SEED_SPREADS, SEED_KEYS, curvePx, sym, roundTick, fmt, scoreQuote } from './data.js'
 import { Logo } from './ui.jsx'
+import { simulate, top } from './market.js'
 import Login from './Login.jsx'
 import Home from './Home.jsx'
 import Trade from './Trade.jsx'
 import Request from './Request.jsx'
 import Integrate from './Integrate.jsx'
+import Settings from './Settings.jsx'
 
 // Compute Desk Exchange prototype. Login picks an account (each stands in for a participant
 // type); all market data is simulated locally around the example forward curves.
@@ -46,7 +48,19 @@ export default function App() {
   const [menu, setMenu] = useState(false)
   const [accts, setAccts] = useState(() => Object.fromEntries(Object.keys(ACCOUNTS).map((k) => [k, { cash: SEED[k].cash, positions: SEED[k].positions, closed: SEED[k].closed, orders: [], fills: seedFills(k) }])))
   const [contracts, setContracts] = useState(SEED_CONTRACTS)
-  const [requests, setRequests] = useState(INCOMING.map((r) => ({ ...r, status: 'open', quotes: [] })))
+  const [requests, setRequests] = useState(() => {
+    // One request of Northwind's already has responses, so the Request page opens on live activity.
+    const own = { id: 'RFQ-2280', kind: 'RFQ', sku: 'H200', gpus: 128, region: 'US-East', ic: 'InfiniBand', start: 'FEB27', term: 6, maxBasis: 0.12, closes: '1h 20m', buyer: 'Northwind AI', owner: 'northwind', status: 'open' }
+    return [{ ...own, quotes: PROVIDERS.map((p) => scoreQuote(p, own)) }, ...INCOMING.map((r) => ({ ...r, status: 'open', quotes: [] }))]
+  })
+  const [spreads, setSpreads] = useState(SEED_SPREADS)
+  const [keys, setKeys] = useState(SEED_KEYS)
+  const [theme, setThemeState] = useState(() => { try { return localStorage.getItem('cdx-theme') || 'dark' } catch { return 'dark' } })
+  const setTheme = (t) => { setThemeState(t); try { localStorage.setItem('cdx-theme', t) } catch { /* storage unavailable */ } }
+  useEffect(() => {
+    const dark = theme === 'dark' || (theme === 'system' && !(window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches))
+    document.documentElement.dataset.theme = dark ? 'dark' : 'light'
+  }, [theme])
   const [drift, setDrift] = useState({ H100: 0, H200: 0, B200: 0, B300: 0 })
   const [tick, setTick] = useState(0)
   const [feed, setFeed] = useState([])
@@ -95,22 +109,25 @@ export default function App() {
   const acct = session && accts[session]
   const setAcct = (fn) => setAccts((a) => ({ ...a, [session]: fn(a[session]) }))
 
+  // Execute an order. Marketable size walks the book level by level; a limit order's unfilled
+  // remainder rests (unless IOC). Block trades fill in full at the agreed price.
   const placeOrder = (o) => {
-    const mid = marks[o.sym], bestAsk = roundTick(mid + TICK), bestBid = roundTick(mid - TICK)
-    const marketable = o.type === 'Market' || (o.type === 'Limit' && (o.side === 'Buy' ? o.px >= bestAsk - 1e-9 : o.px <= bestBid + 1e-9))
-    const ts = now()
-    if (marketable) {
-      const fill = o.venue === 'Block' ? o.px : o.side === 'Buy' ? bestAsk : bestBid
+    const ts = now(), oid = nextId('O')
+    let r
+    if (o.venue === 'Block') r = { fills: [{ px: o.px, q: o.qty }], filled: o.qty, avg: o.px, left: 0 }
+    else if (o.type === 'Stop') r = { fills: [], filled: 0, avg: 0, left: o.qty }
+    else r = simulate(o.sym, marks[o.sym], tick, o.side, o.qty, o.type, o.px)
+    if (r.filled) {
       setAcct((a) => {
-        const r = applyFill(a.positions, o.sym, o.side === 'Buy' ? o.qty : -o.qty, fill)
-        const closed = r.closedQty ? [{ sym: o.sym, qty: r.closedQty, entry: r.entry, exit: fill, how: 'Closed on CLOB', date: ts.slice(0, 10) }, ...a.closed] : a.closed
-        return { ...a, positions: r.next, closed, fills: [{ id: nextId('F'), ts, sym: o.sym, side: o.side, qty: o.qty, px: fill, venue: o.venue || 'CLOB', status: 'Cleared' }, ...a.fills] }
+        const res = applyFill(a.positions, o.sym, o.side === 'Buy' ? r.filled : -r.filled, r.avg)
+        const closed = res.closedQty ? [{ sym: o.sym, qty: res.closedQty, entry: res.entry, exit: r.avg, how: o.venue === 'Block' ? 'Closed by block' : 'Closed on CLOB', date: ts.slice(0, 10) }, ...a.closed] : a.closed
+        const rows = r.fills.map((f) => ({ id: nextId('F'), order: oid, ts, sym: o.sym, side: o.side, qty: f.q, px: f.px, venue: o.venue || 'CLOB', status: 'Cleared' }))
+        return { ...a, positions: res.next, closed, fills: [...rows.reverse(), ...a.fills] }
       })
-      return { ok: true, msg: `Filled: ${o.side.toLowerCase()} ${o.qty} ${o.sym} @ $${fmt(fill)}. Sent to the DCO via your FCM.` }
     }
-    if (o.tif === 'IOC') return { ok: false, msg: 'IOC order was not marketable, so it was cancelled.' }
-    setAcct((a) => ({ ...a, orders: [{ id: nextId('O'), ts, ...o, status: 'Working' }, ...a.orders] }))
-    return { ok: false, msg: `${o.type} order working: ${o.side.toLowerCase()} ${o.qty} ${o.sym} @ $${fmt(o.px)}` }
+    const rest = r.left > 0 && o.type !== 'Market' && o.tif !== 'IOC' ? r.left : 0
+    if (rest) setAcct((a) => ({ ...a, orders: [{ ...o, id: oid, ts, qty: rest, orig: o.qty, done: r.filled, status: r.filled ? 'Partially filled' : 'Working' }, ...a.orders] }))
+    return { id: oid, ts, sym: o.sym, side: o.side, qty: o.qty, type: o.type, venue: o.venue || 'CLOB', fills: r.fills, filled: r.filled, avg: r.avg, rest, cancelled: r.left - rest }
   }
   const cancelOrder = (id) => setAcct((a) => ({ ...a, orders: a.orders.filter((x) => x.id !== id) }))
 
@@ -118,13 +135,13 @@ export default function App() {
   useEffect(() => {
     if (!session) return
     const a = accts[session]
-    const hit = a.orders.find((o) => (o.type === 'Limit' && (o.side === 'Buy' ? roundTick(marks[o.sym] + TICK) <= o.px : roundTick(marks[o.sym] - TICK) >= o.px)) || (o.type === 'Stop' && (o.side === 'Buy' ? marks[o.sym] >= o.px : marks[o.sym] <= o.px)))
+    const hit = a.orders.find((o) => (o.type === 'Limit' && (o.side === 'Buy' ? top(o.sym, marks[o.sym], tick, 1).ask.px <= o.px + 1e-9 : top(o.sym, marks[o.sym], tick, 1).bid.px >= o.px - 1e-9)) || (o.type === 'Stop' && (o.side === 'Buy' ? marks[o.sym] >= o.px : marks[o.sym] <= o.px)))
     if (!hit) return
     const fill = hit.type === 'Stop' ? roundTick(marks[hit.sym] + (hit.side === 'Buy' ? TICK : -TICK)) : hit.px
     setAcct((x) => {
       const r = applyFill(x.positions, hit.sym, hit.side === 'Buy' ? hit.qty : -hit.qty, fill)
       const closed = r.closedQty ? [{ sym: hit.sym, qty: r.closedQty, entry: r.entry, exit: fill, how: 'Closed on CLOB', date: now().slice(0, 10) }, ...x.closed] : x.closed
-      return { ...x, positions: r.next, closed, orders: x.orders.filter((o) => o.id !== hit.id), fills: [{ id: nextId('F'), ts: now(), sym: hit.sym, side: hit.side, qty: hit.qty, px: fill, venue: 'CLOB', status: 'Cleared' }, ...x.fills] }
+      return { ...x, positions: r.next, closed, orders: x.orders.filter((o) => o.id !== hit.id), fills: [{ id: nextId('F'), order: hit.id, ts: now(), sym: hit.sym, side: hit.side, qty: hit.qty, px: fill, venue: 'CLOB', status: 'Cleared' }, ...x.fills] }
     })
   }, [marks])
 
@@ -179,12 +196,56 @@ export default function App() {
     return id
   }
 
+  // Spread RFQs: one net price for two listed contracts; the legs book together as separate futures.
+  const MMS = ['Lattice Trading', 'MM 2', 'MM 3']
+  const spreadMid = (x) => marks[x.a] - x.ratio * marks[x.b]
+  const createSpread = (req) => {
+    const id = nextId('SPR')
+    const mid = spreadMid(req), sg = req.side === 'Buy' ? 1 : -1
+    setSpreads((xs) => [{ ...req, id, owner: session, by: ACCOUNTS[session].name, status: 'open', quotes: [], created: now(), mid }, ...xs])
+    MMS.filter((n) => n !== ACCOUNTS[session].name).forEach((name, i) => setTimeout(() => setSpreads((xs) => xs.map((x) => (x.id === id && x.status === 'open' ? { ...x, quotes: [...x.quotes, { id: 'SQ-' + i, name, px: roundTick(mid + sg * TICK * [1, 2, 2][i] + (i === 2 ? sg * TICK : 0)) }] } : x))), 900 * (i + 1)))
+    return id
+  }
+  const bookSpread = (key, x, px, side) => {
+    const bPx = roundTick(marks[x.b]), aPx = roundTick(px + x.ratio * bPx)
+    const qb = Math.round(x.qty * x.ratio), ts = now()
+    setAccts((all) => {
+      const a = all[key]
+      let pos = a.positions, fills = a.fills, closed = a.closed
+      for (const [s, q, pr, sd] of [[x.a, x.qty, aPx, side], [x.b, qb, bPx, side === 'Buy' ? 'Sell' : 'Buy']]) {
+        const r = applyFill(pos, s, sd === 'Buy' ? q : -q, pr)
+        pos = r.next
+        fills = [{ id: nextId('F'), order: x.id, ts, sym: s, side: sd, qty: q, px: pr, venue: 'Block', status: 'Cleared' }, ...fills]
+        if (r.closedQty) closed = [{ sym: s, qty: r.closedQty, entry: r.entry, exit: pr, how: 'Closed by spread ' + x.id, date: ts.slice(0, 10) }, ...closed]
+      }
+      return { ...all, [key]: { ...a, positions: pos, fills, closed } }
+    })
+    return { aPx, bPx }
+  }
+  const hitSpread = (id, qid) => {
+    const x = spreads.find((y) => y.id === id), q = x.quotes.find((y) => y.id === qid)
+    const legs = bookSpread(session, x, q.px, x.side)
+    if (q.mine) bookSpread(q.mine, x, q.px, x.side === 'Buy' ? 'Sell' : 'Buy')
+    setSpreads((xs) => xs.map((y) => (y.id === id ? { ...y, status: 'done', done: { name: q.name, px: q.px, ...legs, ts: now() } } : y)))
+  }
+  // A market maker answers someone else's spread RFQ. If it is the best price, the requester hits it.
+  const quoteSpread = (id, px) => {
+    const me = ACCOUNTS[session]
+    setSpreads((xs) => xs.map((x) => (x.id === id ? { ...x, quotes: [...x.quotes.filter((q) => q.mine !== session), { id: 'SQ-' + session, name: me.name, mine: session, px }] } : x)))
+    const x = spreads.find((y) => y.id === id), sg = x.side === 'Buy' ? 1 : -1
+    const best = x.quotes.filter((q) => !q.mine).reduce((b, q) => (b == null || sg * q.px < sg * b ? q.px : b), null)
+    if (best == null || sg * px <= sg * best) setTimeout(() => {
+      const legs = bookSpread(session, x, px, x.side === 'Buy' ? 'Sell' : 'Buy')
+      setSpreads((xs) => xs.map((y) => (y.id === id ? { ...y, status: 'done', done: { name: me.name, px, ...legs, ts: now(), mine: session } } : y)))
+    }, 2500)
+  }
+
   const updateContract = (id, fn) => setContracts((cs) => cs.map((c) => (c.id === id ? fn(c) : c)))
 
   if (!session) return <Login onDone={(k) => { setSession(k); setTab('home') }} />
 
   const me = ACCOUNTS[session]
-  const ctx = { session, me, acct, marks, tick, tape, feed, contracts, requests, placeOrder, cancelOrder, createRequest, providerQuote, award, updateContract, setTab, prefill, setPrefill, focus, setFocus }
+  const ctx = { session, me, acct, marks, tick, tape, feed, contracts, requests, spreads, createSpread, hitSpread, quoteSpread, keys, setKeys, theme, setTheme, placeOrder, cancelOrder, createRequest, providerQuote, award, updateContract, setTab, prefill, setPrefill, focus, setFocus }
 
   return (
     <div className="shell">
@@ -211,6 +272,7 @@ export default function App() {
                   <button key={k} className={k === session ? 'on' : ''} onClick={() => { setSession(k); setMenu(false) }}>{a.name} <small>{a.type}</small></button>
                 ))}
                 <hr />
+                <button onClick={() => { setTab('settings'); setMenu(false) }}>Settings</button>
                 <button onClick={() => { setSession(null); setMenu(false) }}>Sign out</button>
               </div>
             )}
@@ -222,6 +284,7 @@ export default function App() {
         {tab === 'trade' && <Trade {...ctx} />}
         {tab === 'request' && <Request {...ctx} />}
         {tab === 'integrate' && <Integrate {...ctx} />}
+        {tab === 'settings' && <Settings {...ctx} />}
       </main>
     </div>
   )
