@@ -138,7 +138,7 @@ function Importer({ onAdd, onClose, kind }) {
           <div className="connectors">
             {[['REST', 'PUT /v1/exposure with the same columns as the CSV'], ['Cloud billing', 'Read committed-use and reserved contracts from AWS, GCP, Azure, CoreWeave'], ['Scheduler', 'Read planned jobs from Slurm or Kubernetes to estimate need'], ['Fleet / DCIM', 'Providers: read installed GPUs and contract book']].map(([t, d]) => <div key={t} className="conn"><b>{t}</b><span className="note">{d}</span><span className="chip">Coming soon</span></div>)}
           </div>
-          <pre className="code">{`curl -X PUT https://api.cdx.example/v1/exposure \\
+          <pre className="code">{`curl -X PUT https://api.computedesk.example/v1/exposure \\
   -H "Authorization: Bearer $CDX_KEY" -H "Content-Type: text/csv" \\
   --data-binary @exposure.csv`}</pre>
         </div>

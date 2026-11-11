@@ -16,10 +16,12 @@ export default function Home({ me, session, acct, marks, contracts, requests, se
   const excess = equity - im
   const hedged = rows.reduce((a, r) => a + r.qty * SIZE, 0)
   const total = im + Math.max(excess, 0) + escrow + bonds
+  // Speculators and market makers trade futures only: no escrow, bonds or physical CTAs.
+  const physical = me.kind === 'end_user' || me.kind === 'provider'
   const openReq = requests.filter((r) => r.status === 'open' && (me.kind === 'provider' ? r.owner !== session : r.owner === session))
 
   const insight = {
-    end_user: { t: `Your H100 Jun–Nov 2027 hedge is ${usd(rows.filter((r) => skuOf(r.k) === 'H100').reduce((a, r) => a + r.pnl, 0))} in the money.`, b: 'Convert it to physical GPUs now to lock the basis before the providers re-price.', cta: 'Convert to Physical', go: () => { setPrefill({ kind: 'EFP', at: Date.now() }); setTab('convert') } },
+    end_user: { t: `Your H100 Jun–Nov 2027 hedge is ${usd(rows.filter((r) => skuOf(r.k) === 'H100').reduce((a, r) => a + r.pnl, 0))} in the money.`, b: 'Convert it to physical GPUs now to lock in today\'s provider premium over the index before it moves.', cta: 'Convert to Physical', go: () => { setPrefill({ kind: 'EFP', at: Date.now() }); setTab('convert') } },
     provider: { t: `${openReq.length} open requests match your H100 and B200 inventory.`, b: 'One is an EFP where the buyer will take your short futures hedge off your hands.', cta: 'Quote the EFP', go: () => setTab('convert') },
     spec: { t: `B200 Mar/Sep 2027 calendar spread at ${fmt(marks[sym('B200', 'SEP27')] - marks[sym('B200', 'MAR27')])}.`, b: 'Contango is widening as Blackwell supply tightens into H2 2027.', cta: 'Open Trade', go: () => { setFocus(sym('B200', 'MAR27')); setTab('trade') } },
     mm: { t: 'Quoting uptime today: 98.7% vs a 95% obligation. Rebate tier 2 is on track.', b: 'H100 Jan 2027 spread is 2 ticks wide; obligation is 4 ticks maximum.', cta: 'Open Integrate', go: () => setTab('integrate') },
@@ -33,7 +35,7 @@ export default function Home({ me, session, acct, marks, contracts, requests, se
           <p className="sub">{me.name} · {me.type} · clears via {me.fcm}</p>
         </div>
         <div className="row">
-          <button className="btn ghost" onClick={() => setTab('request')}>{me.kind === 'provider' ? 'Quote requests' : 'Request capacity'}</button>
+          <button className="btn ghost" onClick={() => setTab('request')}>{me.kind === 'provider' ? 'Quote requests' : me.kind === 'end_user' ? 'Request capacity' : 'Request a quote'}</button>
           <button className="btn" onClick={() => setTab('trade')}>Trade</button>
         </div>
       </div>
@@ -43,7 +45,7 @@ export default function Home({ me, session, acct, marks, contracts, requests, se
           <div className="stats">
             <Stat k="Equity" v={usdK(equity)} cls="cream" />
             <Stat k="Unrealised P&L" v={usd(upnl)} cls={upnl >= 0 ? 'up' : 'dn'} />
-            <Stat k="Net GPU-hrs hedged" v={hedged.toLocaleString()} />
+            <Stat k={physical ? 'Net GPU-hrs hedged' : 'Net position (GPU-hrs)'} v={hedged.toLocaleString()} />
             <Stat k="Open positions" v={rows.length} />
           </div>
           <div className="eyebrow" style={{ marginTop: 22 }}>Collateral</div>
@@ -56,10 +58,10 @@ export default function Home({ me, session, acct, marks, contracts, requests, se
           <div className="legend">
             <span><b style={{ background: '#e8e2b9' }} />Initial margin at FCM <em>{usd(im)}</em></span>
             <span><b style={{ background: '#3a3936' }} />Excess (withdrawable) <em>{usd(excess)}</em></span>
-            <span><b style={{ background: '#8fa9d6' }} />Clear Escrow (buyer) <em>{usd(escrow)}</em></span>
-            <span><b style={{ background: '#7cc59a' }} />Escrow owed to you <em>{usd(bonds)}</em></span>
+            {me.kind === 'end_user' && <span><b style={{ background: '#8fa9d6' }} />Clear Escrow <em>{usd(escrow)}</em></span>}
+            {me.kind === 'provider' && <span><b style={{ background: '#7cc59a' }} />Escrow owed to you <em>{usd(bonds)}</em></span>}
           </div>
-          <p className="note" style={{ marginBottom: 0 }}>Futures margin sits with your FCM and the DCO. Prepayments sit with the escrow agent. Compute Desk Exchange holds neither.</p>
+          <p className="note" style={{ marginBottom: 0 }}>{physical ? 'Futures margin sits with your FCM and the DCO. Prepayments sit with the escrow agent. Compute Desk Exchange holds neither.' : 'Margin sits with your FCM and the DCO. Compute Desk Exchange never holds client money.'}</p>
         </Panel>
 
         <Panel title="For you" right={<span className="meth">Insight</span>}>
@@ -77,7 +79,7 @@ export default function Home({ me, session, acct, marks, contracts, requests, se
         </Panel>
       </div>
 
-      <Panel title="Compute Signal indexes and front futures" right={<span className="meth">Signal Settlement methodology</span>}>
+      <Panel title="Compute Signal indexes and front futures" right={<span className="meth" title="Futures cash-settle to the average of the daily index over the contract month">How futures settle: monthly index average</span>}>
         <div className="prices">
           {Object.entries(SKUS).map(([k, s]) => {
             const f = sym(k, 'DEC26')
@@ -100,7 +102,7 @@ export default function Home({ me, session, acct, marks, contracts, requests, se
           {rows.length ? (
             <div className="tw"><table>
               <thead><tr><th>Contract</th><th className="n">Qty</th><th className="n">Avg</th><th className="n">Mark</th><th className="n">P&L</th></tr></thead>
-              <tbody>{rows.sort((a, b) => b.notional - a.notional).slice(0, 6).map((r) => (
+              <tbody>{rows.sort((a, b) => b.notional - a.notional).slice(0, 7).map((r) => (
                 <tr key={r.k} className="click" onClick={() => { setFocus(r.k); setTab('trade') }}><td>{r.k}</td><td className={'n ' + (r.qty > 0 ? 'up' : 'dn')}>{r.qty > 0 ? '+' : ''}{r.qty}</td><td className="n">{fmt(r.avg)}</td><td className="n">{fmt(r.mark)}</td><td className={'n ' + (r.pnl >= 0 ? 'up' : 'dn')}>{usd(r.pnl)}</td></tr>
               ))}</tbody>
             </table></div>

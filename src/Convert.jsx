@@ -76,7 +76,7 @@ function BuyerFlow({ me, acct, marks, requests, createRequest, award, setTab, pr
   const prepaid = deal?.prepay === '25% upfront' ? 0.25 * monthly * term : monthly
 
   // Start negotiating with one provider: their quote is the opening ask.
-  const choose = (x) => { setPick(x.id); setDeal({ ask: r3(x.norm), counter: r3(Math.max(0, x.norm - 0.03)), agreed: null, prepay: PREPAY[0], poc: 7, rounds: [{ who: x.name, t: `Opening offer: +$${fmt(x.norm, 3)} over strip, monthly in advance, 7-day POC on 1 node.` }], waiting: false }) }
+  const choose = (x) => { setPick(x.id); setDeal({ ask: r3(x.norm), counter: r3(Math.max(0, x.norm - 0.03)), agreed: null, prepay: PREPAY[0], poc: 7, rounds: [{ who: x.name, t: `Opening offer: premium +$${fmt(x.norm, 3)} over strip, monthly in advance, 7-day POC on 1 node.` }], waiting: false }) }
   // Provider's simulated reply: accepts anything within 3 cents of its ask, otherwise meets halfway.
   const sendCounter = () => {
     const c = r3(deal.counter)
@@ -161,7 +161,7 @@ function BuyerFlow({ me, acct, marks, requests, createRequest, award, setTab, pr
             <div className="cv-form">
               <label>Region<select value={spec.region} onChange={(e) => setSpec({ ...spec, region: e.target.value })}><option>US-East</option><option>US-Central</option><option>Any US</option></select></label>
               <label>Interconnect<select value={spec.ic} onChange={(e) => setSpec({ ...spec, ic: e.target.value })}><option>InfiniBand</option><option>RoCE</option></select></label>
-              <label>Max basis over strip ($/GPU-hr)<input type="number" step="0.01" value={spec.maxBasis} onChange={(e) => setSpec({ ...spec, maxBasis: Number(e.target.value) })} /></label>
+              <label>Max premium over strip price ($/GPU-hr)<input type="number" step="0.01" value={spec.maxBasis} onChange={(e) => setSpec({ ...spec, maxBasis: Number(e.target.value) })} /></label>
             </div>
             <div className="callout" style={{ marginTop: 16 }}>
               <div className="eyebrow">Node-Month lease you're asking for</div>
@@ -178,7 +178,7 @@ function BuyerFlow({ me, acct, marks, requests, createRequest, award, setTab, pr
       {step === 2 && r && (
         <div className="cv-grid">
           <Panel title={`3 · Opening offers · ${r.id}`} right={<span className={'pill ' + (r.quotes.length < 4 ? 'warn' : 'good')}>{r.quotes.length < 4 ? `${r.quotes.length} in, more coming` : 'All in'}</span>}>
-            <p className="note" style={{ marginTop: -4 }}>Basis over the strip futures price (<b className="mono cream">${fmt(fAvg)}</b>), normalised to your spec. Pick one provider to negotiate with.</p>
+            <p className="note" style={{ marginTop: -4 }}>Premium over the strip futures price (<b className="mono cream">${fmt(fAvg)}</b>), normalised to your spec. Pick one provider to negotiate with.</p>
             <div className="stack" style={{ gap: 8, marginTop: 10 }}>
               {offers.length === 0 && <p className="note">Waiting for the first offer…</p>}
               {offers.map((x) => (
@@ -194,7 +194,7 @@ function BuyerFlow({ me, acct, marks, requests, createRequest, award, setTab, pr
           {deal && q ? (
             <Panel title={`Term sheet · ${q.name}`} right={deal.agreed != null ? <span className="pill good">Terms agreed</span> : <span className="pill warn">Negotiating</span>}>
               <div className="cv-form" style={{ gridTemplateColumns: '1fr 1fr' }}>
-                <label>Their basis<input disabled value={`+${fmt(deal.ask, 3)}`} /></label>
+                <label>Their premium<input disabled value={`+${fmt(deal.ask, 3)}`} /></label>
                 <label>Your counter<input type="number" step="0.005" value={deal.counter} disabled={deal.agreed != null} onChange={(e) => setDeal({ ...deal, counter: Number(e.target.value) })} /></label>
                 <label>Prepayment<select value={deal.prepay} disabled={deal.agreed != null} onChange={(e) => setDeal({ ...deal, prepay: e.target.value })}>{PREPAY.map((p) => <option key={p}>{p}</option>)}</select></label>
                 <label>POC on 1 node<select value={deal.poc} disabled={deal.agreed != null} onChange={(e) => setDeal({ ...deal, poc: Number(e.target.value) })}>{POC_DAYS.map((d) => <option key={d} value={d}>{d} days</option>)}</select></label>
@@ -207,7 +207,7 @@ function BuyerFlow({ me, acct, marks, requests, createRequest, award, setTab, pr
                 ? <div className="row"><button className="btn ghost" disabled={deal.waiting} onClick={sendCounter}>Send counter</button><button className="btn" disabled={deal.waiting} onClick={acceptAsk}>Accept +{fmt(deal.ask, 3)}</button></div>
                 : <div className="row"><button className="btn" onClick={() => { setPoc({ day: 0, state: 'idle' }); setStep(3) }}>Sign conditional lease</button><span className="note">Binding only if the POC passes.</span></div>}
             </Panel>
-          ) : <Panel title="Term sheet"><p className="note">Pick an offer to open the term sheet. Basis, prepayment and POC length are negotiable. The SLA and break clause are standard.</p></Panel>}
+          ) : <Panel title="Term sheet"><p className="note">Pick an offer to open the term sheet. Premium, prepayment and POC length are negotiable. The SLA and break clause are standard.</p></Panel>}
           <Foot left={<button className="btn ghost" onClick={() => setStep(1)}>Back</button>} next={<span className="note">Offers stay firm for 15 minutes.</span>} />
         </div>
       )}
@@ -228,7 +228,7 @@ function BuyerFlow({ me, acct, marks, requests, createRequest, award, setTab, pr
               <div className="stack" style={{ gap: 8 }}>
                 <div className="kv">Provider<b>{q.name}</b></div>
                 <div className="kv">Lease<b>{nodes} nodes × {term} mo · {sku}</b></div>
-                <div className="kv">Basis over strip<b>+{fmt(basis, 3)}</b></div>
+                <div className="kv">Premium over strip<b>+{fmt(basis, 3)}</b></div>
                 <div className="kv">All-in price<b className="cream">${fmt(price, 3)}</b></div>
                 <div className="kv">Prepayment<b>{deal.prepay} · {usd(prepaid)}</b></div>
                 <div className="kv">SLA<b>99.5% · 72h cure · break</b></div>
@@ -247,7 +247,7 @@ function BuyerFlow({ me, acct, marks, requests, createRequest, award, setTab, pr
                 <div className="kv">Lease price<b>${fmt(price, 3)}</b></div>
                 <div className="kv">Less hedge gain per GPU-hr<b className={gainPerHr >= 0 ? 'up' : 'dn'}>−${fmt(gainPerHr, 3)}</b></div>
                 <div className="kv" style={{ borderTop: '1px solid var(--line)', paddingTop: 10 }}>Net cost per GPU-hr<b className="cream" style={{ fontSize: 18 }}>${fmt(price - gainPerHr, 3)}</b></div>
-                <p className="note">≈ the price you hedged at plus the basis.</p>
+                <p className="note">≈ the price you hedged at plus the premium.</p>
                 <div className="kv">Initial margin released<b>{usd(imRel)}</b></div>
               </div>
             </Panel>
@@ -328,7 +328,7 @@ function ProviderView({ session, acct, marks, requests, providerQuote }) {
         </Panel>
         <Panel title="Your opening offer">
           <div className="cv-form" style={{ gridTemplateColumns: '1fr' }}>
-            <label>Basis over strip ($/GPU-hr)<input type="number" step="0.01" value={basis} onChange={(e) => setBasis(Number(e.target.value))} /></label>
+            <label>Premium over strip price ($/GPU-hr)<input type="number" step="0.01" value={basis} onChange={(e) => setBasis(Number(e.target.value))} /></label>
           </div>
           <div className="stack" style={{ gap: 8, marginTop: 12 }}>
             <div className="kv">All-in price to buyer<b className="cream">${fmt(fAvg + basis, 3)}</b></div>

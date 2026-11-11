@@ -243,7 +243,7 @@ export function findHedges(ex, marks, ratio, kind) {
         ? `You're short ${Math.abs(f)} ${sym(k, MONTHS[i])} and still have ${gap} unsold GPUs that month. Swap the short for a Node-Month Contract with a buyer: the price stays locked and the capacity is sold.`
         : `You hold ${f} ${sym(k, MONTHS[i])} but ${gap} GPUs that month aren't secured yet. Convert the hedge into a Node-Month Contract: the price stays locked and you get the nodes.`,
       px: marks[sym(k, MONTHS[i])], pxLabel: 'Futures mark', im: 0, physical: true,
-      go: { label: 'Convert to Physical', tab: 'request', prefill: { kind: 'EFP', sku: k, start: MONTHS[i], gpus: qty, term: 1 } },
+      go: { label: 'Convert to Physical', tab: 'convert', prefill: { kind: 'EFP', sku: k, start: MONTHS[i], gpus: qty, term: 1 } },
     })
   }
 

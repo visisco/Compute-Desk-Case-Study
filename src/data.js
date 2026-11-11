@@ -89,10 +89,10 @@ export const PROVIDERS = [
 
 export function scoreQuote(q, req) {
   const fails = []
-  if (req.region === 'Any US' ? !q.region.startsWith('US') : q.region !== req.region) fails.push(`Region ${q.region}`)
+  if (req.region === 'Any US' ? !q.region.startsWith('US') : q.region !== req.region) fails.push(`Outside your region (${q.region})`)
   const adj = q.ic === 'RoCE' && req.ic === 'InfiniBand' ? 0.04 : 0 // assumed basis-table adjustment
   const norm = q.basis + adj
-  if (norm > req.maxBasis) fails.push(`Basis ${fmt(norm, 3)} > max ${fmt(req.maxBasis, 3)}`)
+  if (norm > req.maxBasis) fails.push(`Premium +${fmt(norm, 3)} is over your max +${fmt(req.maxBasis, 3)}`)
   const score = Math.max(0, Math.round(100 - norm * 300 - (q.tier === 'Tier 2' ? 8 : 0) - (99.5 - q.uptime) * 10))
   return { ...q, adj, norm, fails, score: fails.length ? 0 : score }
 }
@@ -123,5 +123,5 @@ export const SEED_SPREADS = [
 
 export const SEED_KEYS = [
   { id: 'ak_live_7f3c', name: 'Treasury system', scopes: ['read:market', 'read:account', 'trade:futures'], env: 'Production', created: '2026-09-02', last: '2 min ago' },
-  { id: 'ak_test_19ab', name: 'Sandbox', scopes: ['read:market', 'read:account', 'trade:futures', 'request:rfq'], env: 'Test', created: '2026-08-14', last: '3 days ago' },
+  { id: 'ak_test_19ab', name: 'Sandbox', scopes: ['read:market', 'read:account', 'trade:futures', 'request:rfq'], env: 'Sandbox', created: '2026-08-14', last: '3 days ago' },
 ]

@@ -208,6 +208,10 @@ table.dense td{padding:6px 8px;font-size:13px}
 .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--blue);margin-left:6px;vertical-align:2px}
 .chart-svg{width:100%;height:auto;display:block}
 .axis{font-family:var(--mono);font-size:11px;fill:#8a877f}
+.chart-svg .axis{font-size:12px}
+/* Bid and ask cells in the markets table load an order into the ticket */
+td.hit{cursor:pointer;border-radius:4px}
+td.hit:hover{background:var(--line);text-decoration:underline}
 .book .depthbar{position:relative;font-family:var(--mono)}
 .book .depthbar i{position:absolute;left:0;top:2px;bottom:2px;opacity:.14;border-radius:2px}
 .book .ask .depthbar i{background:var(--crit)}.book .bid .depthbar i{background:var(--good)}

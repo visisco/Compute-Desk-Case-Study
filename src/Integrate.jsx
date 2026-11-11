@@ -5,10 +5,10 @@ import { Panel, Seg } from './ui.jsx'
 const SCOPES = ['read:market', 'read:account', 'trade:futures', 'request:rfq', 'request:efp', 'delivery:attest']
 
 export default function Integrate({ me, marks, feed, keys, setKeys }) {
-  const [env, setEnv] = useState('Test')
+  const [env, setEnv] = useState('Sandbox')
   const [ch, setCh] = useState(me.kind === 'mm' || me.kind === 'spec' ? 'FIX' : 'REST')
   const s = sym('H100', 'JUN27'), px = fmt(marks[s])
-  const host = env === 'Test' ? 'api.test.cdx.example' : 'api.cdx.example'
+  const host = env === 'Sandbox' ? 'api.sandbox.computedesk.example' : 'api.computedesk.example'
 
   const api = s.replace(' ', '')
   const code = {
@@ -47,8 +47,8 @@ Session: CancelOnDisconnect (8013) · kill switch · drop copy to FCM`,
   return (
     <div className="stack">
       <div className="row between">
-        <div><h1>Integrate</h1><p className="sub"><a className="link" href="https://claude.ai/artifact/Kjnunt2cLxqVKEJ2A5Qm5U" target="_blank" rel="noreferrer">Developer docs ↗</a> · <a className="link" href="https://claude.ai/artifact/NupfppqKtwQdRnCXPeeDR3" target="_blank" rel="noreferrer">Market data products and tiers ↗</a></p><p className="sub">Same matching engine and the same FCM risk limits on every channel. Certify in Test, then go live.</p></div>
-        <Seg value={env} options={['Test', 'Production']} onChange={setEnv} />
+        <div><h1>Integrate</h1><p className="sub"><a className="link" href="https://claude.ai/artifact/Kjnunt2cLxqVKEJ2A5Qm5U" target="_blank" rel="noreferrer">Developer docs ↗</a> · <a className="link" href="https://claude.ai/artifact/NupfppqKtwQdRnCXPeeDR3" target="_blank" rel="noreferrer">Market data products and tiers ↗</a></p><p className="sub">Same matching engine and the same FCM risk limits on every channel. Build in Sandbox, certify, then go live.</p></div>
+        <Seg value={env} options={['Sandbox', 'Production']} onChange={setEnv} />
       </div>
 
       <div className="grid2">
@@ -56,11 +56,11 @@ Session: CancelOnDisconnect (8013) · kill switch · drop copy to FCM`,
 
         <Panel title="Connectivity" right={<span className="pill good">all systems normal</span>}>
           <div className="stack" style={{ gap: 9 }}>
-            {[['REST', `https://${host}/v1`, 'ok'], ['WebSocket', `wss://${host}/v1/stream`, 'ok'], ['FIX order entry', `fix.${env === 'Test' ? 'test.' : ''}cdx.example:9880`, me.kind === 'mm' || me.kind === 'spec' ? 'logged on' : 'not configured'], ['FIX drop copy (FCM)', `${me.fcm}`, 'ok'], ['Market data latency (p50)', '4 ms in-region', 'ok']].map(([a, b, c]) => (
+            {[['REST', `https://${host}/v1`, 'ok'], ['WebSocket', `wss://${host}/v1/stream`, 'ok'], ['FIX order entry', `fix.${env === 'Sandbox' ? 'sandbox.' : ''}computedesk.example:9443`, me.kind === 'mm' || me.kind === 'spec' ? 'logged on' : 'not configured'], ['FIX drop copy (FCM)', `${me.fcm}`, 'ok'], ['Market data latency (p50)', '4 ms in-region', 'ok']].map(([a, b, c]) => (
               <div key={a} className="row between"><span>{a}<div className="note mono">{b}</div></span><span className={'pill ' + (c === 'not configured' ? 'muted' : 'good')}>{c}</span></div>
             ))}
           </div>
-          {(me.kind === 'mm' || me.kind === 'spec') && <div className="callout" style={{ marginTop: 14 }}>FIX certification: <b>passed</b> in Test on 2026-10-28. Rate limit {me.kind === 'mm' ? '1,000' : '100'} msg/s.</div>}
+          {(me.kind === 'mm' || me.kind === 'spec') && <div className="callout" style={{ marginTop: 14 }}>FIX certification: <b>passed</b> in the certification environment on 2026-10-28. Rate limit {me.kind === 'mm' ? '1,000' : '100'} msg/s.</div>}
         </Panel>
       </div>
 
@@ -87,11 +87,11 @@ Session: CancelOnDisconnect (8013) · kill switch · drop copy to FCM`,
 }
 
 // Shared with Settings: create keys with scopes and an IP allowlist; the secret shows once.
-export function ApiKeys({ keys, setKeys, env = 'Test' }) {
+export function ApiKeys({ keys, setKeys, env = 'Sandbox' }) {
   const [form, setForm] = useState(null)
   const [secret, setSecret] = useState(null)
   const create = () => {
-    const id = (form.env === 'Test' ? 'ak_test_' : 'ak_live_') + Math.random().toString(16).slice(2, 6)
+    const id = (form.env === 'Sandbox' ? 'ak_test_' : 'ak_live_') + Math.random().toString(16).slice(2, 6)
     setKeys([{ id, name: form.name || 'New key', scopes: form.scopes, env: form.env, created: '2026-11-11', last: 'never' }, ...keys])
     setSecret({ id, secret: 'sk_' + Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join('') })
     setForm(null)
@@ -103,7 +103,7 @@ export function ApiKeys({ keys, setKeys, env = 'Test' }) {
             <div className="callout" style={{ marginBottom: 12 }}>
               <div className="form">
                 <label>Name<input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Risk system" /></label>
-                <label>Environment<select value={form.env} onChange={(e) => setForm({ ...form, env: e.target.value })}><option>Test</option><option>Production</option></select></label>
+                <label>Environment<select value={form.env} onChange={(e) => setForm({ ...form, env: e.target.value })}><option>Sandbox</option><option>Production</option></select></label>
                 <label className="full">IP allowlist (optional)<input value={form.ip} onChange={(e) => setForm({ ...form, ip: e.target.value })} placeholder="203.0.113.0/24" /></label>
                 <div className="full row" style={{ gap: 6 }}>{SCOPES.map((sc) => <label key={sc} className="check"><input type="checkbox" checked={form.scopes.includes(sc)} onChange={() => setForm({ ...form, scopes: form.scopes.includes(sc) ? form.scopes.filter((x) => x !== sc) : [...form.scopes, sc] })} />{sc}</label>)}</div>
                 <div className="full row"><button className="btn" onClick={create}>Create</button><button className="btn ghost" onClick={() => setForm(null)}>Cancel</button></div>

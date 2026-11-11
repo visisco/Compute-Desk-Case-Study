@@ -14,8 +14,11 @@ import Convert from './Convert.jsx'
 // Compute Desk Exchange prototype. Login picks an account (each stands in for a participant
 // type); all market data is simulated locally around the example forward curves.
 
-const TABS = [['home', 'Home'], ['trade', 'Trade'], ['exposure', 'Exposure'], ['request', 'Request'], ['convert', 'Convert to Physical'], ['integrate', 'Integrate']]
+// Convert to Physical is a flow, not a destination: it opens from positions, Home, Request and Exposure.
+const TABS = [['home', 'Home'], ['trade', 'Trade'], ['exposure', 'Exposure'], ['request', 'Request'], ['integrate', 'Integrate']]
 const canConvert = (kind) => kind === 'end_user' || kind === 'provider'
+// Exposure models physical GPU commitments, so only hedgers see it.
+const showTab = (k, kind) => k !== 'exposure' || canConvert(kind)
 
 let seq = 4100
 const nextId = (p) => `${p}-${++seq}`
@@ -258,7 +261,7 @@ export default function App() {
         <div className="row" style={{ gap: 22 }}>
           <div className="brand"><Logo /><span>Compute Desk Exchange</span></div>
           <nav className="nav">
-            {TABS.filter(([k]) => k !== 'convert' || canConvert(me.kind)).map(([k, l]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>)}
+            {TABS.filter(([k]) => showTab(k, me.kind)).map(([k, l]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>)}
           </nav>
         </div>
         <div className="row" style={{ gap: 18 }}>
@@ -274,7 +277,7 @@ export default function App() {
               <div className="menu" onMouseLeave={() => setMenu(false)}>
                 <div className="note" style={{ padding: '6px 10px' }}>Signed in as {me.email}</div>
                 {Object.entries(ACCOUNTS).map(([k, a]) => (
-                  <button key={k} className={k === session ? 'on' : ''} onClick={() => { setSession(k); setMenu(false) }}>{a.name} <small>{a.type}</small></button>
+                  <button key={k} className={k === session ? 'on' : ''} onClick={() => { setSession(k); setMenu(false); if (!canConvert(a.kind) && (tab === 'exposure' || tab === 'convert')) setTab('home') }}>{a.name} <small>{a.type}</small></button>
                 ))}
                 <hr />
                 <button onClick={() => { setTab('settings'); setMenu(false) }}>Settings</button>
