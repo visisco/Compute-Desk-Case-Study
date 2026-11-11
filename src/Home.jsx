@@ -19,8 +19,8 @@ export default function Home({ me, session, acct, marks, contracts, requests, se
   const openReq = requests.filter((r) => r.status === 'open' && (me.kind === 'provider' ? r.owner !== session : r.owner === session))
 
   const insight = {
-    end_user: { t: `Your H100 Jun–Nov 2027 hedge is ${usd(rows.filter((r) => skuOf(r.k) === 'H100').reduce((a, r) => a + r.pnl, 0))} in the money.`, b: 'Convert it to physical GPUs now to lock the basis before the providers re-price.', cta: 'Convert to Physical', go: () => { setPrefill({ kind: 'EFP' }); setTab('request') } },
-    provider: { t: `${openReq.length} open requests match your H100 and B200 inventory.`, b: 'One is an EFP where the buyer will take your short futures hedge off your hands.', cta: 'Open Request', go: () => setTab('request') },
+    end_user: { t: `Your H100 Jun–Nov 2027 hedge is ${usd(rows.filter((r) => skuOf(r.k) === 'H100').reduce((a, r) => a + r.pnl, 0))} in the money.`, b: 'Convert it to physical GPUs now to lock the basis before the providers re-price.', cta: 'Convert to Physical', go: () => { setPrefill({ kind: 'EFP', at: Date.now() }); setTab('convert') } },
+    provider: { t: `${openReq.length} open requests match your H100 and B200 inventory.`, b: 'One is an EFP where the buyer will take your short futures hedge off your hands.', cta: 'Quote the EFP', go: () => setTab('convert') },
     spec: { t: `B200 Mar/Sep 2027 calendar spread at ${fmt(marks[sym('B200', 'SEP27')] - marks[sym('B200', 'MAR27')])}.`, b: 'Contango is widening as Blackwell supply tightens into H2 2027.', cta: 'Open Trade', go: () => { setFocus(sym('B200', 'MAR27')); setTab('trade') } },
     mm: { t: 'Quoting uptime today: 98.7% vs a 95% obligation. Rebate tier 2 is on track.', b: 'H100 Jan 2027 spread is 2 ticks wide; obligation is 4 ticks maximum.', cta: 'Open Integrate', go: () => setTab('integrate') },
   }[me.kind]
