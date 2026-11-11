@@ -1,0 +1,673 @@
+<title>CDX Developer Docs</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Connect to Compute Desk Exchange over REST, WebSocket and FIX.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: sticky top bar, sticky left index of sections, one reading column of reference content.
+   Compute Desk product look: warm charcoal, hairline rules, cream for prices, steel blue for links and methods. */
+:root{
+  --bg:#141413; --panel:#1b1a19; --raise:#232220; --line:#2d2c2a; --line-strong:#3a3936;
+  --fg:#ecebe6; --muted:#9a9890; --faint:#6f6d67;
+  --cream:#e8e2b9; --blue:#8fa9d6;
+  --good:#7cc59a; --crit:#e2806f; --warn:#d9b26a;
+  --sans:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{scroll-padding-top:72px}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+a{color:var(--blue);text-decoration:none}
+a:hover{text-decoration:underline}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:4px}
+code,pre,kbd{font-family:var(--mono)}
+:not(pre)>code{font-size:.86em;background:var(--raise);border:1px solid var(--line);padding:1px 5px;border-radius:4px;color:var(--cream);overflow-wrap:anywhere}
+
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line);
+  padding-block:12px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;letter-spacing:-.005em}
+.brand svg{width:22px;height:22px;fill:var(--fg)}
+.brand span{color:var(--muted);font-weight:400}
+.top .sp{flex:1}
+.envs{display:flex;gap:6px;flex-wrap:wrap;font-family:var(--mono);font-size:12px}
+.envs span{border:1px solid var(--line-strong);border-radius:999px;padding:2px 10px;color:var(--muted)}
+.envs span.on{color:var(--good);border-color:#3c5a47}
+
+.shell{display:grid;grid-template-columns:250px minmax(0,1fr);max-width:1240px;margin:0 auto;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+nav.side{position:sticky;top:calc(58px + env(safe-area-inset-top,0px));align-self:start;max-height:calc(100vh - 70px);overflow:auto;padding:24px 20px 40px 0;border-right:1px solid var(--line)}
+.side input{width:100%;background:var(--panel);border:1px solid var(--line-strong);color:var(--fg);border-radius:6px;padding:7px 10px;font:inherit;font-size:13px;margin-bottom:16px}
+.side .grp{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);margin:18px 0 6px}
+.side .grp:first-of-type{margin-top:0}
+.side a{display:block;color:var(--muted);font-size:13.5px;padding:3px 0 3px 10px;border-left:2px solid transparent}
+.side a:hover{color:var(--fg);text-decoration:none}
+.side a.on{color:var(--fg);border-left-color:var(--cream)}
+main{min-width:0;padding:28px 0 80px 44px;max-width:900px}
+@media (max-width:900px){
+  .shell{grid-template-columns:minmax(0,1fr)}
+  nav.side{position:static;max-height:none;border-right:0;border-bottom:1px solid var(--line);padding:16px 0}
+  .side .links{display:flex;flex-wrap:wrap;gap:4px 14px}
+  .side .grp{width:100%;margin:10px 0 2px}
+  .side a{padding:2px 0;border-left:0}
+  main{padding:20px 0 60px}
+}
+
+section{padding-bottom:28px;margin-bottom:36px;border-bottom:1px solid var(--line)}
+section:last-of-type{border-bottom:0}
+.eyebrow{font-family:var(--mono);font-size:12px;color:var(--faint);letter-spacing:.04em}
+h1{font-size:32px;line-height:1.2;font-weight:600;letter-spacing:-.02em;margin:4px 0 10px;text-wrap:balance}
+h2{font-size:23px;font-weight:600;letter-spacing:-.01em;margin:2px 0 10px;text-wrap:balance}
+h3{font-size:16px;font-weight:600;margin:28px 0 8px}
+p{margin:0 0 12px;max-width:68ch}
+.lead{font-size:16.5px;color:var(--muted);max-width:64ch}
+ul,ol{margin:0 0 14px;padding-left:20px;max-width:68ch}
+li{margin:3px 0}
+.note{font-size:13.5px;color:var(--muted)}
+
+.tw{overflow-x:auto;margin:6px 0 16px;border:1px solid var(--line);border-radius:8px}
+table{border-collapse:collapse;width:100%;font-size:13.5px;font-variant-numeric:tabular-nums}
+th{text-align:left;font-weight:500;color:var(--muted);font-size:12px;letter-spacing:.03em;background:var(--panel);border-bottom:1px solid var(--line);padding:8px 12px;white-space:nowrap}
+td{border-bottom:1px solid var(--line);padding:8px 12px;vertical-align:top}
+tr:last-child td{border-bottom:0}
+td code{white-space:nowrap}
+td.m{font-family:var(--mono);font-size:12.5px;white-space:nowrap}
+
+.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:18px 0 8px}
+@media (max-width:700px){.cards{grid-template-columns:minmax(0,1fr)}}
+.card{border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:6px}
+.card b{font-size:15px}
+.card .k{font-family:var(--mono);font-size:12px;color:var(--cream)}
+.card p{font-size:13.5px;color:var(--muted);margin:0}
+.card a{font-size:13px;margin-top:auto}
+
+.code{position:relative;margin:8px 0 16px;border:1px solid var(--line);border-radius:8px;background:#0f0f0e;min-width:0}
+.code .bar{display:flex;align-items:center;gap:4px;border-bottom:1px solid var(--line);padding:4px 6px 4px 12px;font-family:var(--mono);font-size:11.5px;color:var(--faint)}
+.code .bar .t{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.code .bar button{background:transparent;border:1px solid transparent;color:var(--muted);font:inherit;font-size:11.5px;padding:3px 8px;border-radius:5px;cursor:pointer}
+.code .bar button:hover{color:var(--fg);border-color:var(--line-strong)}
+.code .bar button.on{color:var(--fg);background:var(--raise);border-color:var(--line-strong)}
+.code pre{margin:0;padding:12px 14px;overflow-x:auto;font-size:12.8px;line-height:1.6;color:#d9d7cf}
+.code pre[hidden]{display:none}
+.c-k{color:var(--blue)} .c-s{color:var(--cream)} .c-n{color:var(--good)} .c-c{color:var(--faint)} .c-w{color:var(--warn)}
+
+.ep{border:1px solid var(--line);border-radius:8px;margin:10px 0;background:var(--panel)}
+.ep summary{list-style:none;cursor:pointer;display:flex;gap:10px;align-items:baseline;padding:9px 12px;flex-wrap:wrap}
+.ep summary::-webkit-details-marker{display:none}
+.ep summary:hover .path{color:var(--fg)}
+.ep[open] summary{border-bottom:1px solid var(--line)}
+.ep .body{padding:4px 12px 2px}
+.verb{font-family:var(--mono);font-size:11px;font-weight:600;border-radius:4px;padding:2px 6px;min-width:52px;text-align:center;display:inline-block}
+.v-get{color:var(--blue);background:#1f2633}
+.v-post{color:var(--good);background:#1d2a22}
+.v-patch{color:var(--warn);background:#2c261b}
+.v-del{color:var(--crit);background:#2e1f1c}
+.path{font-family:var(--mono);font-size:13px;color:#d9d7cf;overflow-wrap:anywhere}
+.ep .what{color:var(--muted);font-size:13px;margin-left:auto}
+@media (max-width:700px){.ep .what{margin-left:0;width:100%}}
+
+.callout{border:1px solid var(--line-strong);border-left:3px solid var(--cream);background:var(--panel);border-radius:6px;padding:10px 14px;margin:12px 0 16px;font-size:14px}
+.callout b{color:var(--cream)}
+.callout.warn{border-left-color:var(--warn)}
+.pill{font-family:var(--mono);font-size:11px;border:1px solid var(--line-strong);border-radius:999px;padding:1px 8px;color:var(--muted);white-space:nowrap}
+.pill.pub{color:var(--good);border-color:#3c5a47}
+.pill.priv{color:var(--warn);border-color:#5a4c33}
+.sym{font-family:var(--mono);font-size:26px;letter-spacing:.06em;display:flex;gap:2px;flex-wrap:wrap;margin:12px 0 6px}
+.sym span{border:1px solid var(--line-strong);background:var(--panel);padding:6px 10px;border-radius:6px;color:var(--cream);display:flex;flex-direction:column;align-items:center;line-height:1.1}
+.sym span small{font-family:var(--sans);font-size:10.5px;letter-spacing:.04em;color:var(--muted);margin-top:5px;text-transform:uppercase}
+.steps{counter-reset:s;list-style:none;padding:0}
+.steps>li{counter-increment:s;position:relative;padding-left:34px;margin:14px 0}
+.steps>li::before{content:counter(s);position:absolute;left:0;top:1px;width:22px;height:22px;border-radius:50%;border:1px solid var(--line-strong);font-family:var(--mono);font-size:12px;display:grid;place-items:center;color:var(--cream)}
+footer{color:var(--faint);font-size:12.5px;padding:10px 0 0}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+</style>
+
+<header class="top">
+  <div class="brand">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h8v8H3zM13 3h8v8h-8zM3 13h8v8H3z" opacity=".9"/><path d="M13 13h8v8h-8z" opacity=".45"/></svg>
+    Compute Desk Exchange <span>Developer docs</span>
+  </div>
+  <div class="sp"></div>
+  <div class="envs" aria-label="Environments"><span class="on">Sandbox</span><span>Certification</span><span>Production</span></div>
+</header>
+
+<div class="shell">
+<nav class="side" aria-label="Sections">
+  <label for="navfilter" class="note" style="display:none">Filter sections</label>
+  <input id="navfilter" type="search" placeholder="Filter sections" autocomplete="off">
+  <div class="links">
+    <div class="grp">Start</div>
+    <a href="#overview">Overview</a>
+    <a href="#quickstart">Quickstart</a>
+    <a href="#environments">Environments</a>
+    <a href="#auth">Authentication</a>
+    <div class="grp">Products</div>
+    <a href="#symbols">Symbols</a>
+    <a href="#contracts">Contract specs</a>
+    <div class="grp">APIs</div>
+    <a href="#rest">REST API</a>
+    <a href="#rest-orders">Orders</a>
+    <a href="#rest-rfq">Block RFQ</a>
+    <a href="#rest-efp">Convert to Physical (EFP)</a>
+    <a href="#rest-delivery">Contracts and delivery</a>
+    <a href="#rest-data">Market and index data</a>
+    <a href="#websocket">WebSocket</a>
+    <a href="#fix">FIX</a>
+    <a href="#fix-cert">FIX certification</a>
+    <div class="grp">Reference</div>
+    <a href="#limits">Rate limits</a>
+    <a href="#errors">Errors</a>
+    <a href="#data-access">Data access</a>
+    <a href="#changelog">Changelog</a>
+  </div>
+</nav>
+
+<main>
+
+<section id="overview">
+  <div class="eyebrow">API v1 · draft for review</div>
+  <h1>Build on Compute Desk Exchange</h1>
+  <p class="lead">Trade GPU compute futures, request physical capacity and track delivery from your own systems. Every channel reaches the same matching engine and the same risk checks as the trading screen.</p>
+  <div class="cards">
+    <div class="card"><b>REST</b><span class="k">https://api.computedesk.example/v1</span><p>Orders, Block RFQ, Convert to Physical, contracts, delivery records, statements and data history.</p><a href="#rest">REST reference →</a></div>
+    <div class="card"><b>WebSocket</b><span class="k">wss://api.computedesk.example/v1/stream</span><p>Real-time book, trades, index and curve, plus your own orders, fills, positions and delivery events.</p><a href="#websocket">Channels →</a></div>
+    <div class="card"><b>FIX 4.4</b><span class="k">fix.computedesk.example:9443</span><p>Low-latency order entry, mass quoting for market makers, and drop copy for FCMs.</p><a href="#fix">FIX spec →</a></div>
+  </div>
+  <h3>Which channel to use</h3>
+  <div class="tw"><table>
+    <thead><tr><th>You are</th><th>Start with</th><th>Typical flow</th></tr></thead>
+    <tbody>
+      <tr><td>End user (AI lab, enterprise)</td><td>UI, then REST</td><td>Buy futures to hedge, post a physical RFQ, Convert to Physical, pull delivery and escrow records into treasury systems</td></tr>
+      <tr><td>Provider (neocloud)</td><td>UI, then REST</td><td>Sell futures, quote RFQs and EFP basis, publish inventory, post attestation evidence</td></tr>
+      <tr><td>Speculator or algo</td><td>WebSocket + REST, or FIX</td><td>Stream the book, trade outrights and spreads, reconcile fills</td></tr>
+      <tr><td>Market maker</td><td>FIX + WebSocket</td><td>Mass quote 12 months per SKU, stream depth, drop copy to your FCM</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">All prices are in US dollars per GPU-hour. All quantities are in contracts (1 contract = 1 GPU-month = 730 GPU-hours) unless a field says otherwise. Examples use made-up data.</p>
+</section>
+
+<section id="quickstart">
+  <h2>Quickstart</h2>
+  <p>Place your first order in the sandbox in about five minutes. Sandbox uses play money and resets every Sunday at 00:00 UTC.</p>
+  <ol class="steps">
+    <li><b>Create a sandbox key.</b> In the platform, open <b>Integrate → API keys</b>, choose <b>Sandbox</b>, and give the key the <code>read</code> and <code>trade</code> scopes. Copy the secret now: it's shown once.</li>
+    <li><b>Find a contract.</b> List the H100 US futures and pick a month.
+      <div class="code" data-tabs><div class="bar"><span class="t">GET /v1/instruments</span><button class="on" data-tab="curl">curl</button><button data-tab="py">Python</button><button data-copy>Copy</button></div>
+<pre data-pane="curl">curl -s "https://api.sandbox.computedesk.example/v1/instruments?root=H1UF&amp;status=open" \
+  -H "Authorization: Bearer $CDX_KEY" \
+  -H "X-Timestamp: $TS" -H "X-Signature: $SIG"</pre>
+<pre data-pane="py" hidden><span class="c-k">from</span> cdx <span class="c-k">import</span> Client   <span class="c-c"># thin wrapper that signs requests</span>
+cdx = Client(key=<span class="c-s">"ck_sbx_…"</span>, secret=<span class="c-s">"…"</span>, env=<span class="c-s">"sandbox"</span>)
+<span class="c-k">for</span> i <span class="c-k">in</span> cdx.get(<span class="c-s">"/v1/instruments"</span>, root=<span class="c-s">"H1UF"</span>, status=<span class="c-s">"open"</span>)[<span class="c-s">"data"</span>]:
+    print(i[<span class="c-s">"symbol"</span>], i[<span class="c-s">"last_trading_day"</span>])</pre></div>
+    </li>
+    <li><b>Place a limit order.</b> Buy 8 December contracts (one node-month) at $2.90.
+      <div class="code" data-tabs><div class="bar"><span class="t">POST /v1/orders</span><button class="on" data-tab="curl">curl</button><button data-tab="py">Python</button><button data-copy>Copy</button></div>
+<pre data-pane="curl">curl -s -X POST https://api.sandbox.computedesk.example/v1/orders \
+  -H "Authorization: Bearer $CDX_KEY" -H "X-Timestamp: $TS" -H "X-Signature: $SIG" \
+  -H "Idempotency-Key: 0b9d4c1e-qs-001" -H "Content-Type: application/json" \
+  -d '{"symbol":"H1UFZ26","side":"buy","qty":8,"type":"limit","price":"2.90","tif":"gtc","client_order_id":"qs-001"}'</pre>
+<pre data-pane="py" hidden>order = cdx.post(<span class="c-s">"/v1/orders"</span>, json={
+    <span class="c-s">"symbol"</span>: <span class="c-s">"H1UFZ26"</span>, <span class="c-s">"side"</span>: <span class="c-s">"buy"</span>, <span class="c-s">"qty"</span>: <span class="c-n">8</span>,
+    <span class="c-s">"type"</span>: <span class="c-s">"limit"</span>, <span class="c-s">"price"</span>: <span class="c-s">"2.90"</span>, <span class="c-s">"tif"</span>: <span class="c-s">"gtc"</span>,
+    <span class="c-s">"client_order_id"</span>: <span class="c-s">"qs-001"</span>,
+}, idempotency_key=<span class="c-s">"0b9d4c1e-qs-001"</span>)
+print(order[<span class="c-s">"order_id"</span>], order[<span class="c-s">"status"</span>])</pre></div>
+    </li>
+    <li><b>Watch it fill.</b> Subscribe to your <code>orders</code> and <code>fills</code> channels on the <a href="#websocket">WebSocket</a>, or poll <code>GET /v1/orders/{order_id}</code>.</li>
+  </ol>
+</section>
+
+<section id="environments">
+  <h2>Environments</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Environment</th><th>REST and WebSocket host</th><th>FIX host</th><th>Use it for</th></tr></thead>
+    <tbody>
+      <tr><td>Sandbox</td><td class="m">api.sandbox.computedesk.example</td><td class="m">fix.sandbox.computedesk.example:9443</td><td>Building and testing. Play money, simulated counterparties, delivery steps you can trigger by hand.</td></tr>
+      <tr><td>Certification</td><td class="m">api.cert.computedesk.example</td><td class="m">fix.cert.computedesk.example:9443</td><td>Scripted tests you must pass before a production FIX session or market maker status.</td></tr>
+      <tr><td>Production</td><td class="m">api.computedesk.example</td><td class="m">fix.computedesk.example:9443</td><td>Live trading, cleared through your FCM.</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">Trading hours (proposed): Sunday 18:00 to Friday 17:00 New York time, with a daily break from 17:00 to 18:00. REST endpoints for records and history stay up during breaks.</p>
+</section>
+
+<section id="auth">
+  <h2>Authentication</h2>
+  <p>REST and WebSocket use an API key plus an HMAC-SHA256 signature on every request. FIX uses the same key, signed at logon.</p>
+  <h3>API keys and scopes</h3>
+  <p>Create keys in <b>Integrate → API keys</b>. Each key belongs to one account and one environment, and carries only the scopes you give it. Your FCM's pre-trade credit limits apply on top of every key.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Scope</th><th>Allows</th></tr></thead>
+    <tbody>
+      <tr><td><code>read</code></td><td>Reference data, your orders, fills, positions and statements</td></tr>
+      <tr><td><code>trade</code></td><td>Place, change and cancel orders; mass cancel</td></tr>
+      <tr><td><code>rfq</code></td><td>Create, quote and accept Block RFQs and physical RFQs</td></tr>
+      <tr><td><code>efp</code></td><td>Convert to Physical requests, quotes and acceptance</td></tr>
+      <tr><td><code>delivery</code></td><td>Physical contracts, acceptance decisions, escrow and attestation records</td></tr>
+      <tr><td><code>marketdata</code></td><td>Market and index data, limited to what your data tier includes (see <a href="#data-access">Data access</a>)</td></tr>
+    </tbody>
+  </table></div>
+  <h3>Signing a request</h3>
+  <p>Send three headers. The signature is the hex HMAC-SHA256 of <code>timestamp + METHOD + path_with_query + body</code>, keyed with your secret. Requests more than 5 seconds from server time are rejected.</p>
+  <div class="code" data-tabs><div class="bar"><span class="t">Signing</span><button class="on" data-tab="py">Python</button><button data-tab="js">Node.js</button><button data-copy>Copy</button></div>
+<pre data-pane="py"><span class="c-k">import</span> hmac, hashlib, time, json
+ts   = str(int(time.time() * <span class="c-n">1000</span>))
+body = json.dumps(payload, separators=(<span class="c-s">","</span>, <span class="c-s">":"</span>))
+msg  = ts + <span class="c-s">"POST"</span> + <span class="c-s">"/v1/orders"</span> + body
+sig  = hmac.new(secret.encode(), msg.encode(), hashlib.sha256).hexdigest()
+headers = {<span class="c-s">"Authorization"</span>: <span class="c-s">f"Bearer {key}"</span>, <span class="c-s">"X-Timestamp"</span>: ts, <span class="c-s">"X-Signature"</span>: sig}</pre>
+<pre data-pane="js" hidden><span class="c-k">import</span> { createHmac } <span class="c-k">from</span> <span class="c-s">"node:crypto"</span>;
+<span class="c-k">const</span> ts = String(Date.now());
+<span class="c-k">const</span> body = JSON.stringify(payload);
+<span class="c-k">const</span> sig = createHmac(<span class="c-s">"sha256"</span>, secret).update(ts + <span class="c-s">"POST"</span> + <span class="c-s">"/v1/orders"</span> + body).digest(<span class="c-s">"hex"</span>);
+<span class="c-k">const</span> headers = { Authorization: <span class="c-s">`Bearer ${key}`</span>, <span class="c-s">"X-Timestamp"</span>: ts, <span class="c-s">"X-Signature"</span>: sig };</pre></div>
+  <h3>Idempotency</h3>
+  <p>Every <code>POST</code>, <code>PATCH</code> and <code>DELETE</code> accepts an <code>Idempotency-Key</code> header. Resending the same key within 24 hours returns the first result instead of acting twice. Order endpoints also reject a reused <code>client_order_id</code> among your open orders.</p>
+</section>
+
+<section id="symbols">
+  <h2>Symbols</h2>
+  <p>Every listed contract has a 4-character root plus a month code and year. New chips, regions and contract types slot into the same pattern.</p>
+  <div class="sym" aria-label="H1UF Z26 broken into parts">
+    <span>H1<small>Chip</small></span><span>U<small>Region</small></span><span>F<small>Type</small></span><span style="background:transparent;border-color:transparent"> </span><span>Z<small>Month</small></span><span>26<small>Year</small></span>
+  </div>
+  <p class="note" style="margin-bottom:16px"><code>H1UF Z26</code> is the H100 US GPU-Month Future for December 2026. In API fields the space is dropped: <code>H1UFZ26</code>.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Part</th><th>Codes</th></tr></thead>
+    <tbody>
+      <tr><td>Chip</td><td><code>H1</code> H100 · <code>H2</code> H200 · <code>B2</code> B200 · <code>B3</code> B300</td></tr>
+      <tr><td>Region</td><td><code>U</code> US · <code>E</code> EU</td></tr>
+      <tr><td>Type</td><td><code>F</code> cash-settled future · <code>P</code> physical Node-Month Contract · <code>O</code> option (later) · <code>D</code> daily or spot (later)</td></tr>
+      <tr><td>Month</td><td><code>F</code> Jan · <code>G</code> Feb · <code>H</code> Mar · <code>J</code> Apr · <code>K</code> May · <code>M</code> Jun · <code>N</code> Jul · <code>Q</code> Aug · <code>U</code> Sep · <code>V</code> Oct · <code>X</code> Nov · <code>Z</code> Dec</td></tr>
+    </tbody>
+  </table></div>
+  <div class="tw"><table>
+    <thead><tr><th>Example</th><th>API symbol</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td class="m">H1UF Z26</td><td class="m">H1UFZ26</td><td>H100 US GPU-Month Future, Dec 2026</td></tr>
+      <tr><td class="m">H1UP Z26</td><td class="m">H1UPZ26</td><td>H100 US Node-Month Contract (physical), Dec 2026</td></tr>
+      <tr><td class="m">H1UF Z26-F27</td><td class="m">H1UFZ26-F27</td><td>Calendar spread: buy Dec 2026, sell Jan 2027</td></tr>
+      <tr><td class="m">B2UF-H1UF Z26</td><td class="m">B2UFZ26-H1UFZ26</td><td>Chip spread: buy B200, sell H100, Dec 2026</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">Index ids follow <code>&lt;chip&gt;-&lt;region&gt;-&lt;tenor&gt;</code>, for example <code>H100-US-1Y</code> for the Compute Signal H100 US 1-year rental index.</p>
+</section>
+
+<section id="contracts">
+  <h2>Contract specs</h2>
+  <p><b>Compute Futures</b> are cash-settled on Compute Signal indexes. The <b>Node-Month Contract</b> is the physical product you reach through an RFQ or Convert to Physical.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Term</th><th>H100 / B200 GPU-Month Futures</th><th>Node-Month Contract (physical)</th></tr></thead>
+    <tbody>
+      <tr><td>Unit</td><td>1 GPU × 730 hours (1 GPU-month)</td><td>8 GPUs × 730 hours (1 node-month) per lot</td></tr>
+      <tr><td>Price</td><td>$/GPU-hr</td><td>$/GPU-hr, fixed or index plus basis</td></tr>
+      <tr><td>Tick</td><td>$0.01/GPU-hr = $7.30 per contract</td><td>$0.01/GPU-hr</td></tr>
+      <tr><td>Listed</td><td>12 consecutive months</td><td>Start month plus a term of 1 to 12 months</td></tr>
+      <tr><td>Underlying</td><td>Compute Signal 1-year rental index for that chip and region</td><td>Delivered GPUs to the term sheet: chip, GPU count, region, interconnect, uptime SLA</td></tr>
+      <tr><td>Last trading day</td><td>Last business day of the contract month</td><td>n/a</td></tr>
+      <tr><td>Final settlement</td><td>Average of the daily index over the contract month, published the next business day</td><td>Monthly, in arrears, for GPU-hours that pass Clear Verified checks</td></tr>
+      <tr><td>Daily settlement</td><td>Closing-window VWAP; fair value from index and curve if there are no trades (flagged)</td><td>n/a</td></tr>
+      <tr><td>Execution</td><td>Order book, Block RFQ (minimum 25 contracts), EFP</td><td>RFQ or Convert to Physical (lots of 8 contracts)</td></tr>
+      <tr><td>Risk controls</td><td>2-minute pause after a ±15% move; spot-month position limit about 1,000 contracts; self-trade prevention</td><td>Clear Escrow (buyer prepays 1 month) and a provider performance bond</td></tr>
+      <tr><td>Clearing</td><td>Through your FCM to the partner clearinghouse</td><td>Bilateral, secured by Clear Escrow</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">Contract terms are proposals for review. Pull the live values from <code>GET /v1/instruments</code>; never hard-code tick, size or limits.</p>
+</section>
+
+<section id="rest">
+  <h2>REST API</h2>
+  <p>JSON over HTTPS. Base URL <code>https://api.computedesk.example/v1</code>. Prices are decimal strings, so they never lose precision. Times are ISO 8601 in UTC.</p>
+  <ul>
+    <li><b>Pagination:</b> list endpoints return <code>{"data": [...], "next_cursor": "..."}</code>. Pass <code>cursor</code> for the next page; <code>limit</code> is 100 by default and 1,000 at most.</li>
+    <li><b>Versioning:</b> breaking changes get a new path version. Additive changes (new fields, new enum values) can arrive at any time, so ignore fields you don't know.</li>
+  </ul>
+  <h3>Reference data</h3>
+  <details class="ep"><summary><span class="verb v-get">GET</span><span class="path">/v1/instruments</span><span class="what">List contracts</span></summary><div class="body">
+    <p>Filters: <code>root</code>, <code>chip</code>, <code>region</code>, <code>type</code> (<code>future</code>, <code>spread</code>, <code>physical</code>), <code>status</code> (<code>open</code>, <code>halted</code>, <code>expired</code>).</p>
+    <div class="code"><div class="bar"><span class="t">200 OK</span><button data-copy>Copy</button></div><pre>{ "data": [{
+  "symbol": "H1UFZ26", "display": "H1UF Z26", "name": "H100 US GPU-Month Future",
+  "type": "future", "index_id": "H100-US-1Y", "expiry_month": "2026-12",
+  "size_gpu_hrs": 730, "tick": "0.01", "physical_lot": 8, "block_min": 25,
+  "last_trading_day": "2026-12-31", "status": "open"
+}], "next_cursor": null }</pre></div>
+  </div></details>
+  <details class="ep"><summary><span class="verb v-get">GET</span><span class="path">/v1/instruments/{symbol}</span><span class="what">One contract</span></summary><div class="body"><p>Same fields as the list, plus <code>price_band</code> and <code>position_limit</code>.</p></div></details>
+  <details class="ep"><summary><span class="verb v-get">GET</span><span class="path">/v1/calendar</span><span class="what">Trading days and breaks</span></summary><div class="body"><p>Trading sessions, holidays, last trading days and settlement publication times for the next 13 months.</p></div></details>
+  <details class="ep"><summary><span class="verb v-get">GET</span><span class="path">/v1/basis-tables</span><span class="what">Physical adjustments</span></summary><div class="body"><p>The adjustments used to normalise physical quotes to the index reference spec: region, interconnect, provider tier and term.</p></div></details>
+</section>
+
+<section id="rest-orders">
+  <h2>Orders, fills and positions</h2>
+  <details class="ep" open><summary><span class="verb v-post">POST</span><span class="path">/v1/orders</span><span class="what">Place an order</span></summary><div class="body">
+    <div class="tw"><table>
+      <thead><tr><th>Field</th><th>Type</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td><code>symbol</code></td><td>string</td><td>Outright or spread, e.g. <code>H1UFZ26</code>, <code>H1UFZ26-F27</code></td></tr>
+        <tr><td><code>side</code></td><td>enum</td><td><code>buy</code>, <code>sell</code></td></tr>
+        <tr><td><code>qty</code></td><td>integer</td><td>Contracts</td></tr>
+        <tr><td><code>type</code></td><td>enum</td><td><code>limit</code>; <code>market</code> is converted to a limit at the price band edge</td></tr>
+        <tr><td><code>price</code></td><td>decimal string</td><td>$/GPU-hr, on a $0.01 tick</td></tr>
+        <tr><td><code>tif</code></td><td>enum</td><td><code>day</code>, <code>gtc</code>, <code>ioc</code>, <code>fok</code></td></tr>
+        <tr><td><code>post_only</code></td><td>boolean</td><td>Rejects instead of taking liquidity</td></tr>
+        <tr><td><code>stp</code></td><td>enum</td><td>Self-trade prevention: <code>cancel_newest</code> (default), <code>cancel_oldest</code>, <code>cancel_both</code></td></tr>
+        <tr><td><code>account</code></td><td>string</td><td>Your FCM account. Optional if you have only one</td></tr>
+        <tr><td><code>client_order_id</code></td><td>string</td><td>Up to 36 characters, unique among your open orders</td></tr>
+      </tbody>
+    </table></div>
+    <div class="code"><div class="bar"><span class="t">201 Created</span><button data-copy>Copy</button></div><pre>{ "order_id": "O-88213", "client_order_id": "nw-hedge-0042", "symbol": "H1UFZ26",
+  "side": "buy", "qty": 20, "filled_qty": 20, "avg_price": "2.92", "status": "filled",
+  "gpu_hrs": 14600, "venue": "clob", "created_at": "2026-11-11T16:52:04.118Z" }</pre></div>
+  </div></details>
+  <details class="ep"><summary><span class="verb v-get">GET</span><span class="path">/v1/orders</span><span class="what">List orders</span></summary><div class="body"><p>Filter by <code>status</code> (<code>open</code>, <code>filled</code>, <code>cancelled</code>, <code>rejected</code>), <code>symbol</code> and time range.</p></div></details>
+  <details class="ep"><summary><span class="verb v-get">GET</span><span class="path">/v1/orders/{order_id}</span><span class="what">One order</span></summary><div class="body"><p>Also accepts <code>client:{client_order_id}</code> in place of the id.</p></div></details>
+  <details class="ep"><summary><span class="verb v-patch">PATCH</span><span class="path">/v1/orders/{order_id}</span><span class="what">Change price or quantity</span></summary><div class="body"><p>Send <code>price</code> and/or <code>qty</code>. Lowering quantity keeps your place in the queue; any other change loses it.</p></div></details>
+  <details class="ep"><summary><span class="verb v-del">DELETE</span><span class="path">/v1/orders/{order_id}</span><span class="what">Cancel one order</span></summary><div class="body"><p>Returns the order with <code>status: "cancelled"</code>.</p></div></details>
+  <details class="ep"><summary><span class="verb v-del">DELETE</span><span class="path">/v1/orders</span><span class="what">Mass cancel (kill switch)</span></summary><div class="body"><p>Cancels every open order for the account, or only those matching <code>symbol</code> or <code>root</code>. Also blocks new orders if you pass <code>lock=true</code>, until you unlock in the UI.</p></div></details>
+  <details class="ep"><summary><span class="verb v-get">GET</span><span class="path">/v1/fills</span><span class="what">Your executions</span></summary><div class="body"><p>Each fill has <code>trade_id</code>, <code>order_id</code>, <code>price</code>, <code>qty</code>, <code>liquidity</code> (<code>maker</code>/<code>taker</code>), <code>fee</code>, <code>venue</code> (<code>clob</code>, <code>block</code>, <code>efp</code>) and <code>clearing_ref</code>.</p></div></details>
+  <details class="ep"><summary><span class="verb v-get">GET</span><span class="path">/v1/positions</span><span class="what">Net positions</span></summary><div class="body"><div class="code"><div class="bar"><span class="t">200 OK</span><button data-copy>Copy</button></div><pre>{ "data": [{ "symbol": "H1UFZ26", "account": "FCM-7731-04", "net_qty": 64,
+  "avg_price": "2.50", "settle_price": "2.92", "variation_margin": "19622.40",
+  "gpu_hrs": 46720, "efp_eligible_lots": 8 }] }</pre></div></div></details>
+  <details class="ep"><summary><span class="verb v-get">GET</span><span class="path">/v1/account/limits</span><span class="what">Credit and position limits</span></summary><div class="body"><p>Pre-trade limits your FCM has set, how much of each you're using, and exchange position limits.</p></div></details>
+  <details class="ep"><summary><span class="verb v-get">GET</span><span class="path">/v1/statements</span><span class="what">Daily statements</span></summary><div class="body"><p>Trades, fees, settlement prices and physical contract activity for a day, as JSON, CSV or PDF.</p></div></details>
+</section>
+
+<section id="rest-rfq">
+  <h2>Block RFQ</h2>
+  <p>One endpoint family covers two kinds of request. A <b>block</b> RFQ prices a large futures trade (25 contracts or more) off the screen. A <b>physical</b> RFQ asks providers to quote a Node-Month Contract against a term sheet. Requests are blind: providers see the term sheet, not who asked.</p>
+  <details class="ep" open><summary><span class="verb v-post">POST</span><span class="path">/v1/rfqs</span><span class="what">Request quotes</span></summary><div class="body">
+    <div class="code"><div class="bar"><span class="t">Physical RFQ</span><button data-copy>Copy</button></div><pre>{ "type": "physical",
+  "term_sheet": { "chip": "H100", "gpus": 64, "region": "US-East", "interconnect": "InfiniBand",
+                  "start_month": "2027-01", "term_months": 6, "sla_uptime": 99.5 },
+  "price_type": "index_plus_basis", "max_basis": "0.15", "expires_in_s": 3600 }</pre></div>
+    <p class="note">For <code>type: "block"</code> send <code>symbol</code>, <code>side</code> (optional, to hide direction leave it out) and <code>qty</code> instead of a term sheet.</p>
+  </div></details>
+  <details class="ep"><summary><span class="verb v-get">GET</span><span class="path">/v1/rfqs/{rfq_id}</span><span class="what">Status and quotes</span></summary><div class="body"><p>Physical quotes come back normalised to the index reference spec, with a <code>score</code> that also weighs provider delivery history.</p></div></details>
+  <details class="ep"><summary><span class="verb v-post">POST</span><span class="path">/v1/rfqs/{rfq_id}/quotes</span><span class="what">Quote (providers, market makers)</span></summary><div class="body"><p>Send <code>basis</code> or <code>price</code>, <code>qty</code> and <code>valid_for_s</code>. Needs the <code>rfq</code> scope.</p></div></details>
+  <details class="ep"><summary><span class="verb v-post">POST</span><span class="path">/v1/rfqs/{rfq_id}/accept</span><span class="what">Accept a quote</span></summary><div class="body"><p>Send <code>quote_id</code>. A block RFQ books a futures trade with <code>venue: "block"</code>. A physical RFQ creates a contract in <code>pending_escrow</code>.</p></div></details>
+  <details class="ep"><summary><span class="verb v-post">POST</span><span class="path">/v1/inventory</span><span class="what">Publish capacity (providers)</span></summary><div class="body"><p>Tell CDX which chips, regions and start months you can deliver, so physical RFQs and EFP requests are routed to you.</p></div></details>
+</section>
+
+<section id="rest-efp">
+  <h2>Convert to Physical (EFP)</h2>
+  <p>Turn a futures position into a Node-Month Contract. CDX routes the request to qualified providers, you accept a basis quote, and two things book at once: your futures are bought back by the provider at the agreed futures price, and a physical contract is created at futures price plus basis.</p>
+  <div class="callout"><b>Lots of 8.</b> Physical delivery works in whole nodes, so <code>qty</code> must be a multiple of 8 contracts. One lot is one 8-GPU node for one month.</div>
+  <details class="ep" open><summary><span class="verb v-post">POST</span><span class="path">/v1/efps</span><span class="what">Request a conversion</span></summary><div class="body">
+    <div class="code"><div class="bar"><span class="t">Request</span><button data-copy>Copy</button></div><pre>{ "positions": [{ "symbol": "H1UFZ26", "qty": 64 }],
+  "term_sheet": { "chip": "H100", "gpus": 64, "region": "US-East", "interconnect": "InfiniBand",
+                  "start_month": "2026-12", "term_months": 1, "sla_uptime": 99.5 },
+  "max_basis": "0.15" }</pre></div>
+    <div class="code"><div class="bar"><span class="t">202 Accepted</span><button data-copy>Copy</button></div><pre>{ "efp_id": "EFP-3307", "status": "quoting", "routed_to": 5, "expires_at": "2026-11-11T17:52:00Z" }</pre></div>
+  </div></details>
+  <details class="ep"><summary><span class="verb v-get">GET</span><span class="path">/v1/efps/{efp_id}</span><span class="what">Status and basis quotes</span></summary><div class="body"><p>Statuses: <code>quoting</code> → <code>accepted</code> → <code>booked</code>, or <code>expired</code> / <code>cancelled</code>.</p></div></details>
+  <details class="ep"><summary><span class="verb v-post">POST</span><span class="path">/v1/efps/{efp_id}/accept</span><span class="what">Accept a basis quote</span></summary><div class="body">
+    <div class="code"><div class="bar"><span class="t">200 OK</span><button data-copy>Copy</button></div><pre>{ "efp_id": "EFP-3307", "status": "booked",
+  "futures_leg": { "trade_id": "T-551920", "symbol": "H1UFZ26", "qty": 64, "price": "2.92", "venue": "efp" },
+  "physical_leg": { "contract_id": "PC-1042", "price": "3.00", "basis": "0.08", "status": "pending_escrow" } }</pre></div>
+    <p class="note">Once booked, the futures leg is final. If delivery later fails, it is resolved inside the physical contract (bond, replacement provider), never by unwinding the futures.</p>
+  </div></details>
+  <details class="ep"><summary><span class="verb v-post">POST</span><span class="path">/v1/efps/{efp_id}/quotes</span><span class="what">Quote basis (providers)</span></summary><div class="body"><p>Send <code>basis</code> over the futures price and <code>valid_for_s</code>.</p></div></details>
+</section>
+
+<section id="rest-delivery">
+  <h2>Contracts and delivery</h2>
+  <p>A physical contract moves through <code>pending_escrow</code> → <code>provisioning</code> → <code>acceptance</code> → <code>live</code> → <code>completed</code>, or into <code>cure</code> or <code>default</code>. Clear Verified evidence from Compute Clear drives the acceptance and monthly payment steps.</p>
+  <details class="ep" open><summary><span class="verb v-get">GET</span><span class="path">/v1/contracts/{contract_id}/delivery</span><span class="what">Delivery status</span></summary><div class="body">
+    <div class="code"><div class="bar"><span class="t">200 OK</span><button data-copy>Copy</button></div><pre>{ "contract_id": "PC-1042", "stage": "live", "month": 3, "clear_verified": true,
+  "verified_gpu_hrs": 93440, "uptime_30d": 99.71, "sla_credits": "0.00",
+  "escrow": { "balance": "533264.00", "next_release": "2026-12-01" },
+  "bond": { "amount": "140160.00", "form": "letter_of_credit" } }</pre></div>
+  </div></details>
+  <details class="ep"><summary><span class="verb v-get">GET</span><span class="path">/v1/contracts</span><span class="what">Your physical contracts</span></summary><div class="body"><p>Filter by <code>role</code> (<code>buyer</code>, <code>provider</code>), <code>stage</code> and <code>chip</code>.</p></div></details>
+  <details class="ep"><summary><span class="verb v-post">POST</span><span class="path">/v1/contracts/{contract_id}/acceptance</span><span class="what">Accept or reject delivery (buyers)</span></summary><div class="body"><p>Send <code>decision</code> (<code>accept</code>, <code>reject</code>) and, for a rejection, <code>reason</code> and failing <code>node_ids</code>. A rejection opens a cure window for the provider.</p></div></details>
+  <details class="ep"><summary><span class="verb v-get">GET</span><span class="path">/v1/contracts/{contract_id}/escrow</span><span class="what">Clear Escrow ledger</span></summary><div class="body"><p>Deposits, monthly releases, SLA credits, bond draws and top-ups.</p></div></details>
+  <details class="ep"><summary><span class="verb v-post">POST</span><span class="path">/v1/contracts/{contract_id}/attestations</span><span class="what">Post evidence (providers)</span></summary><div class="body"><p>Usually sent by the Compute Clear agent on your nodes. Carries node ids, hardware fingerprints, benchmark results and uptime samples.</p></div></details>
+</section>
+
+<section id="rest-data">
+  <h2>Market and index data (REST)</h2>
+  <p>Snapshots and history. For anything that changes faster than once a minute, use the <a href="#websocket">WebSocket</a>. What you can read depends on your <a href="#data-access">data tier</a>.</p>
+  <details class="ep"><summary><span class="verb v-get">GET</span><span class="path">/v1/marketdata/{symbol}/book</span><span class="what">Order book snapshot</span></summary><div class="body"><p><code>depth</code> 1 to 50 (default 10). Includes <code>seq</code>, so you can line it up with WebSocket deltas.</p></div></details>
+  <details class="ep"><summary><span class="verb v-get">GET</span><span class="path">/v1/marketdata/{symbol}/trades</span><span class="what">Recent and historical trades</span></summary><div class="body"><p>Up to 1 year per call by time range. Each trade has price, size, aggressor side and venue.</p></div></details>
+  <details class="ep"><summary><span class="verb v-get">GET</span><span class="path">/v1/marketdata/{symbol}/stats</span><span class="what">Daily statistics</span></summary><div class="body"><p>Open, high, low, last, volume, open interest and settlement.</p></div></details>
+  <details class="ep"><summary><span class="verb v-get">GET</span><span class="path">/v1/settlements</span><span class="what">Settlement prices</span></summary><div class="body"><p>Daily and final settlement by <code>symbol</code> or <code>root</code>, with <code>method</code> (<code>vwap</code>, <code>fair_value</code>, <code>index_average</code>).</p></div></details>
+  <details class="ep"><summary><span class="verb v-get">GET</span><span class="path">/v1/curve/{root}</span><span class="what">Forward curve</span></summary><div class="body"><p>One point per listed month for a root such as <code>H1UF</code>, plus the spot index. <code>as_of</code> returns a past curve.</p></div></details>
+  <details class="ep"><summary><span class="verb v-get">GET</span><span class="path">/v1/indexes/{index_id}</span><span class="what">Latest index value</span></summary><div class="body"><div class="code"><div class="bar"><span class="t">200 OK</span><button data-copy>Copy</button></div><pre>{ "index_id": "H100-US-1Y", "name": "Compute Signal H100 US 1-Year Rental",
+  "value": "2.88", "as_of": "2026-11-10", "prints": 41, "dispersion": "0.11",
+  "methodology_version": "1.4", "flags": [] }</pre></div></div></details>
+  <details class="ep"><summary><span class="verb v-get">GET</span><span class="path">/v1/indexes/{index_id}/history</span><span class="what">Index history</span></summary><div class="body"><p>Daily values since the index started. <code>point_in_time=true</code> returns each value as first published, plus any corrections.</p></div></details>
+</section>
+
+<section id="websocket">
+  <h2>WebSocket</h2>
+  <p>Connect to <code>wss://api.computedesk.example/v1/stream</code>. Public channels need no login. Private channels need a signed <code>auth</code> message first.</p>
+  <div class="code"><div class="bar"><span class="t">Session</span><button data-copy>Copy</button></div><pre><span class="c-c">→ authenticate (sign ts + "GET" + "/v1/stream")</span>
+{ "op": "auth", "key": "ck_live_…", "ts": "1794416012345", "sig": "9f2c…" }
+<span class="c-c">→ subscribe</span>
+{ "op": "subscribe", "channels": ["book.H1UFZ26", "trades.H1UF*", "index.H100-US-1Y", "orders", "fills"] }
+<span class="c-c">← snapshot, then deltas with consecutive seq</span>
+{ "ch": "book.H1UFZ26", "type": "snapshot", "seq": 88190, "ts": "2026-11-11T16:52:04.101Z",
+  "bids": [["2.91", 40], ["2.90", 64]], "asks": [["2.93", 32], ["2.94", 48]] }
+{ "ch": "book.H1UFZ26", "type": "delta", "seq": 88191, "asks": [["2.93", 24]] }
+{ "ch": "fills", "type": "update", "seq": 1207, "order_id": "O-88213", "price": "2.93", "qty": 8, "liquidity": "taker" }</pre></div>
+  <h3>Channels</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Channel</th><th>Access</th><th>Carries</th></tr></thead>
+    <tbody>
+      <tr><td><code>bbo.{symbol}</code></td><td><span class="pill pub">public</span></td><td>Best bid and offer with size</td></tr>
+      <tr><td><code>book.{symbol}</code></td><td><span class="pill pub">public</span></td><td>Full depth: snapshot, then deltas. A size of 0 removes the level</td></tr>
+      <tr><td><code>trades.{symbol}</code></td><td><span class="pill pub">public</span></td><td>Every trade with venue type. <code>*</code> matches all months of a root</td></tr>
+      <tr><td><code>index.{index_id}</code></td><td><span class="pill pub">public</span></td><td>Daily fix, <code>correction</code> and <code>stale</code> messages</td></tr>
+      <tr><td><code>curve.{root}</code></td><td><span class="pill pub">public</span></td><td>Forward curve, every 15 minutes</td></tr>
+      <tr><td><code>settlement.{root}</code></td><td><span class="pill pub">public</span></td><td>Daily and final settlement prices</td></tr>
+      <tr><td><code>status</code></td><td><span class="pill pub">public</span></td><td>Trading state per instrument: open, paused (circuit breaker), halted, closed</td></tr>
+      <tr><td><code>orders</code>, <code>fills</code></td><td><span class="pill priv">private</span></td><td>Every change to your orders, and your executions</td></tr>
+      <tr><td><code>positions</code></td><td><span class="pill priv">private</span></td><td>Net position and variation margin per contract</td></tr>
+      <tr><td><code>rfq</code>, <code>efp</code></td><td><span class="pill priv">private</span></td><td>Quotes arriving, expiries and bookings on your requests (or requests routed to you)</td></tr>
+      <tr><td><code>delivery</code></td><td><span class="pill priv">private</span></td><td>Stage changes, acceptance results, escrow releases, SLA credits</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">"Public" means no login is needed, not that it's free in real time. Without a data entitlement, public channels are delayed by 10 minutes. Real-time data is included with every trading account in year one.</p>
+  <h3>Keeping your book in sync</h3>
+  <ol>
+    <li>Each channel has its own <code>seq</code>. Each delta's <code>seq</code> is one more than the last.</li>
+    <li>If you see a gap, send <code>{"op":"resync","ch":"book.H1UFZ26"}</code>. You get a fresh snapshot, then deltas carry on from it.</li>
+    <li>The server sends <code>{"op":"ping"}</code> every 15 seconds. Reply with <code>pong</code> within 10 seconds or the connection closes.</li>
+    <li>Set <code>"cancel_on_disconnect": true</code> in <code>auth</code> to cancel your open orders if the connection drops.</li>
+  </ol>
+  <p>You can place and cancel orders over the socket with <code>{"op":"order.new", ...}</code> and <code>{"op":"order.cancel", ...}</code>, using the same fields as REST. Responses come back on the <code>orders</code> channel.</p>
+</section>
+
+<section id="fix">
+  <h2>FIX</h2>
+  <p>FIX 4.4 over TLS, for order entry, mass quoting and drop copy. Each firm gets separate sessions for each purpose. Sessions run Sunday 17:30 to Friday 17:30 New York time, and sequence numbers reset weekly.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Session</th><th>Who</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td>Order entry</td><td>Speculators, market makers, algos</td><td>Orders, mass quotes, cancels, execution reports</td></tr>
+      <tr><td>Drop copy</td><td>FCMs, your risk system</td><td>Read-only copy of every execution, block and EFP for the accounts you clear or own</td></tr>
+    </tbody>
+  </table></div>
+  <h3>Logon</h3>
+  <p>Put your API key id in <code>553 Username</code> and the HMAC-SHA256 of <code>SendingTime + MsgSeqNum + SenderCompID</code> in <code>96 RawData</code>. Set <code>8013 CancelOnDisconnect=Y</code> to cancel resting orders and quotes when the session drops.</p>
+  <div class="code"><div class="bar"><span class="t">Logon (35=A)</span><button data-copy>Copy</button></div><pre>8=FIX.4.4|9=…|35=A|49=LATTICE|56=CDX|34=1|52=20261111-16:50:00.000|98=0|108=30|
+553=ck_live_8f21|95=64|96=4c1a…e09b|8013=Y|10=…|</pre></div>
+  <h3>Messages</h3>
+  <div class="tw"><table>
+    <thead><tr><th>MsgType</th><th>Name</th><th>Direction</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td class="m">D</td><td>NewOrderSingle</td><td>You → CDX</td><td>Limit orders; <code>59</code> TimeInForce 0 Day, 1 GTC, 3 IOC, 4 FOK</td></tr>
+      <tr><td class="m">G</td><td>OrderCancelReplaceRequest</td><td>You → CDX</td><td>Change price or quantity</td></tr>
+      <tr><td class="m">F</td><td>OrderCancelRequest</td><td>You → CDX</td><td></td></tr>
+      <tr><td class="m">q</td><td>OrderMassCancelRequest</td><td>You → CDX</td><td>Kill switch: all orders, or by symbol</td></tr>
+      <tr><td class="m">i</td><td>MassQuote</td><td>You → CDX</td><td>Market makers: two-sided quotes for many months in one message</td></tr>
+      <tr><td class="m">Z</td><td>QuoteCancel</td><td>You → CDX</td><td>Pull some or all quotes</td></tr>
+      <tr><td class="m">c / d</td><td>SecurityDefinitionRequest / SecurityDefinition</td><td>Both</td><td>Instruments and spreads, same fields as <code>/v1/instruments</code></td></tr>
+      <tr><td class="m">8</td><td>ExecutionReport</td><td>CDX → you</td><td>Acks, fills, cancels, rejects</td></tr>
+      <tr><td class="m">b</td><td>MassQuoteAcknowledgement</td><td>CDX → you</td><td>Per-entry accept or reject</td></tr>
+      <tr><td class="m">9</td><td>OrderCancelReject</td><td>CDX → you</td><td></td></tr>
+      <tr><td class="m">AE</td><td>TradeCaptureReport</td><td>CDX → you</td><td>Blocks (<code>828=1</code>), EFPs (<code>828=2</code>) and all drop copy</td></tr>
+      <tr><td class="m">j</td><td>BusinessMessageReject</td><td>CDX → you</td><td>Message understood but not allowed (scope, entitlement)</td></tr>
+    </tbody>
+  </table></div>
+  <h3>Key tags</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Tag</th><th>Name</th><th>CDX use</th></tr></thead>
+    <tbody>
+      <tr><td class="m">55</td><td>Symbol</td><td>Root, e.g. <code>H1UF</code>. For spreads, the full spread symbol</td></tr>
+      <tr><td class="m">200</td><td>MaturityMonthYear</td><td><code>202612</code> for Z26. Required with a root symbol</td></tr>
+      <tr><td class="m">167</td><td>SecurityType</td><td><code>FUT</code> or <code>MLEG</code> for spreads</td></tr>
+      <tr><td class="m">38</td><td>OrderQty</td><td>Contracts (1 = 730 GPU-hrs)</td></tr>
+      <tr><td class="m">44</td><td>Price</td><td>$/GPU-hr, $0.01 tick</td></tr>
+      <tr><td class="m">1</td><td>Account</td><td>Your FCM account</td></tr>
+      <tr><td class="m">11</td><td>ClOrdID</td><td>Unique per session per day</td></tr>
+      <tr><td class="m">7928</td><td>SelfMatchPreventionID</td><td>Orders with the same value never trade with each other</td></tr>
+      <tr><td class="m">828</td><td>TrdType</td><td><code>0</code> order book, <code>1</code> block, <code>2</code> EFP</td></tr>
+      <tr><td class="m">8013</td><td>CancelOnDisconnect</td><td>Custom, on Logon: <code>Y</code> or <code>N</code></td></tr>
+    </tbody>
+  </table></div>
+  <div class="code"><div class="bar"><span class="t">Mass quote and fill</span><button data-copy>Copy</button></div><pre><span class="c-c">MassQuote: bid and offer for Dec and Jan in one message</span>
+8=FIX.4.4|35=i|49=LATTICE|56=CDX|117=Q-5521|296=1|302=H1UF|295=2|
+  299=1|55=H1UF|200=202612|132=2.91|133=2.93|134=40|135=40|
+  299=2|55=H1UF|200=202701|132=2.86|133=2.89|134=40|135=40|
+<span class="c-c">ExecutionReport: 8 lifted at 2.93</span>
+8=FIX.4.4|35=8|49=CDX|56=LATTICE|37=O-99102|17=E-771203|150=F|39=1|55=H1UF|200=202612|
+  54=2|32=8|31=2.93|151=32|14=8|828=0|1=FCM-2210-09|</pre></div>
+</section>
+
+<section id="fix-cert">
+  <h2>FIX certification</h2>
+  <p>Pass these scripted tests in Certification before we turn on a production session. Market makers also need a signed market maker agreement.</p>
+  <ol>
+    <li>Logon, heartbeat, test request and logout, including a bad signature that must be rejected.</li>
+    <li>Sequence gap: we skip a number and you must send a ResendRequest and recover.</li>
+    <li>Order lifecycle: new, partial fill, replace, cancel, and a reject for an off-tick price.</li>
+    <li>Mass quote across 12 months, then a QuoteCancel for one month.</li>
+    <li>Kill switch: OrderMassCancelRequest clears every order within 1 second.</li>
+    <li>Cancel on disconnect: drop the connection and confirm orders are gone on reconnect.</li>
+    <li>Circuit breaker: handle the 2-minute pause and resumption on the <code>status</code> feed.</li>
+    <li>Drop copy (FCMs): receive and reconcile a block trade and an EFP.</li>
+  </ol>
+</section>
+
+<section id="limits">
+  <h2>Rate limits</h2>
+  <p>Limits are per account. Responses carry <code>X-RateLimit-Remaining</code> and <code>X-RateLimit-Reset</code>. Going over returns <code>429</code> on REST, or a reject on WebSocket and FIX.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Participant</th><th>Channels</th><th>Order messages</th><th>REST reads</th><th>WebSocket connections</th></tr></thead>
+    <tbody>
+      <tr><td>End user</td><td>UI, REST</td><td>20 / s</td><td>50 / s</td><td>5</td></tr>
+      <tr><td>Provider</td><td>UI, REST</td><td>20 / s</td><td>50 / s</td><td>5</td></tr>
+      <tr><td>Speculator</td><td>FIX, WebSocket, UI</td><td>100 / s</td><td>100 / s</td><td>20</td></tr>
+      <tr><td>Market maker</td><td>FIX, WebSocket</td><td>1,000 / s</td><td>200 / s</td><td>50</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">These are starting values to tune with real traffic. Market makers can ask for higher limits as part of their agreement.</p>
+</section>
+
+<section id="errors">
+  <h2>Errors</h2>
+  <p>REST errors return an HTTP status and a body like <code>{"error": "price_outside_band", "message": "Price 3.60 is outside the band 2.48 to 3.36.", "request_id": "r-7f31"}</code>. FIX uses the same codes in <code>58 Text</code>.</p>
+  <div class="tw"><table>
+    <thead><tr><th>HTTP</th><th>Code</th><th>What to do</th></tr></thead>
+    <tbody>
+      <tr><td class="m">400</td><td><code>tick_size_violation</code></td><td>Round the price to $0.01</td></tr>
+      <tr><td class="m">400</td><td><code>lot_size_violation</code></td><td>EFP and physical quantities must be multiples of 8; blocks need 25 or more</td></tr>
+      <tr><td class="m">400</td><td><code>price_outside_band</code></td><td>Price is too far from the reference price; check <code>price_band</code></td></tr>
+      <tr><td class="m">401</td><td><code>signature_invalid</code>, <code>timestamp_skew</code></td><td>Check your signing string and clock (5-second window)</td></tr>
+      <tr><td class="m">403</td><td><code>scope_missing</code></td><td>Add the scope to the key in Integrate → API keys</td></tr>
+      <tr><td class="m">403</td><td><code>entitlement_required</code></td><td>Your data tier doesn't include this dataset or speed</td></tr>
+      <tr><td class="m">409</td><td><code>idempotency_conflict</code></td><td>Same key, different body; use a new key</td></tr>
+      <tr><td class="m">422</td><td><code>credit_limit_exceeded</code></td><td>Your FCM's pre-trade limit; ask your FCM</td></tr>
+      <tr><td class="m">422</td><td><code>position_limit_exceeded</code></td><td>Exchange position limit for the contract</td></tr>
+      <tr><td class="m">422</td><td><code>self_trade_prevented</code></td><td>Your order would have traded with your own resting order</td></tr>
+      <tr><td class="m">423</td><td><code>market_paused</code></td><td>Circuit breaker; resend after the pause on the <code>status</code> channel</td></tr>
+      <tr><td class="m">429</td><td><code>rate_limited</code></td><td>Back off until <code>X-RateLimit-Reset</code></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="data-access">
+  <h2>Data access</h2>
+  <p>Market data and Compute Signal index data run through one entitlement model: dataset, speed (real-time, delayed, end of day), use (display, non-display, redistribution, benchmark) and history depth. The API returns <code>403 entitlement_required</code> naming what's missing.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Tier</th><th>You get</th></tr></thead>
+    <tbody>
+      <tr><td>Public</td><td>Index values the next business day, end-of-day settlements, 10-minute delayed top of book</td></tr>
+      <tr><td>Registered</td><td>Public, plus REST access, reference data and 90 days of history</td></tr>
+      <tr><td>Trading</td><td>Real-time book, trades, curve and indexes for display and your own algos; 1 year of history. Free in year one</td></tr>
+      <tr><td>Professional</td><td>Trading, plus full history, bulk files (SFTP and S3, Parquet and CSV) and non-display use</td></tr>
+      <tr><td>Market maker</td><td>Professional, at no charge while you meet quoting obligations</td></tr>
+      <tr><td>Benchmark licence</td><td>Required to settle, price or value a financial product or loan against a Compute Signal index</td></tr>
+    </tbody>
+  </table></div>
+  <p>The full data access spec covers the dataset catalogue, history, delivery channels, licensing terms and index governance: <a href="https://claude.ai/artifact/4EdrS68fZfczcJ97R3MGvd" target="_blank" rel="noopener">CDX data access spec</a>.</p>
+</section>
+
+<section id="changelog">
+  <h2>Changelog</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Date</th><th>Change</th></tr></thead>
+    <tbody>
+      <tr><td class="m">2026-11-11</td><td>First draft: REST, WebSocket and FIX 4.4 for Compute Futures, Block RFQ, Convert to Physical and delivery records.</td></tr>
+    </tbody>
+  </table></div>
+  <footer>Compute Desk Exchange (CDX) · draft developer documentation for discussion. Hosts, limits and contract terms are proposals, and all data shown is example data.</footer>
+</section>
+
+</main>
+</div>
+
+<script>
+(function(){
+  // Tabs inside code blocks
+  document.querySelectorAll('.code[data-tabs]').forEach(function(box){
+    box.querySelectorAll('button[data-tab]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        box.querySelectorAll('button[data-tab]').forEach(function(b){ b.classList.toggle('on', b === btn); });
+        box.querySelectorAll('pre[data-pane]').forEach(function(p){ p.hidden = p.getAttribute('data-pane') !== btn.getAttribute('data-tab'); });
+      });
+    });
+  });
+  // Copy buttons copy the visible pane
+  document.querySelectorAll('button[data-copy]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var box = btn.closest('.code');
+      var pre = Array.prototype.find.call(box.querySelectorAll('pre'), function(p){ return !p.hidden; });
+      var text = pre ? pre.innerText : '';
+      function done(label){ btn.textContent = label; setTimeout(function(){ btn.textContent = 'Copy'; }, 1400); }
+      try {
+        navigator.clipboard.writeText(text).then(function(){ done('Copied'); }, function(){ selectText(pre); done('Selected'); });
+      } catch (e) { selectText(pre); done('Selected'); }
+    });
+  });
+  function selectText(el){ if(!el) return; var r = document.createRange(); r.selectNodeContents(el); var s = window.getSelection(); s.removeAllRanges(); s.addRange(r); }
+
+  // Section links scroll in-page; highlight the section in view
+  var links = Array.prototype.slice.call(document.querySelectorAll('.side a'));
+  links.forEach(function(a){
+    a.addEventListener('click', function(e){
+      var id = a.getAttribute('href').slice(1); var t = document.getElementById(id);
+      if (t) { e.preventDefault(); t.scrollIntoView({block:'start'}); try { history.replaceState(null, '', '#' + id); } catch (err) {} }
+    });
+  });
+  var byId = {}; links.forEach(function(a){ byId[a.getAttribute('href').slice(1)] = a; });
+  if ('IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(en){ if (en.isIntersecting && byId[en.target.id]) { links.forEach(function(l){ l.classList.remove('on'); }); byId[en.target.id].classList.add('on'); } });
+    }, { rootMargin: '-70px 0px -65% 0px' });
+    document.querySelectorAll('main section').forEach(function(s){ io.observe(s); });
+  }
+  // Filter the section list
+  var f = document.getElementById('navfilter');
+  f.addEventListener('input', function(){
+    var q = f.value.trim().toLowerCase();
+    links.forEach(function(a){ a.hidden = q && a.textContent.toLowerCase().indexOf(q) === -1; });
+  });
+  // Open on the section named in the link
+  function go(){ var id = (location.hash || '').slice(1); var t = id && document.getElementById(id); if (t) t.scrollIntoView({block:'start'}); }
+  window.addEventListener('hashchange', go); if (location.hash) setTimeout(go, 50);
+})();
+</script>
