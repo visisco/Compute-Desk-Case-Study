@@ -8,11 +8,12 @@ import Trade from './Trade.jsx'
 import Request from './Request.jsx'
 import Integrate from './Integrate.jsx'
 import Settings from './Settings.jsx'
+import Exposure from './Hedge.jsx'
 
 // Compute Desk Exchange prototype. Login picks an account (each stands in for a participant
 // type); all market data is simulated locally around the example forward curves.
 
-const TABS = [['home', 'Home'], ['trade', 'Trade'], ['request', 'Request'], ['integrate', 'Integrate']]
+const TABS = [['home', 'Home'], ['trade', 'Trade'], ['exposure', 'Exposure'], ['request', 'Request'], ['integrate', 'Integrate']]
 
 let seq = 4100
 const nextId = (p) => `${p}-${++seq}`
@@ -285,6 +286,7 @@ export default function App() {
         {tab === 'request' && <Request {...ctx} />}
         {tab === 'integrate' && <Integrate {...ctx} />}
         {tab === 'settings' && <Settings {...ctx} />}
+        {tab === 'exposure' && <Exposure {...ctx} />}
       </main>
     </div>
   )
