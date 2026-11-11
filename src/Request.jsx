@@ -28,7 +28,7 @@ function NewRequest({ acct, marks, createRequest, onCreated, prefill }) {
         <label>Term (months)<select value={r.term} onChange={set('term')}>{(kind === 'EFP' ? [1, 3, 6] : [1, 3, 6, 12]).map((m) => <option key={m}>{m}</option>)}</select></label>
         <label>Region<select value={r.region} onChange={set('region')}><option>US-East</option><option>US-Central</option><option>Any US</option><option>EU-West</option></select></label>
         <label>Interconnect<select value={r.ic} onChange={set('ic')}><option>InfiniBand</option><option>RoCE</option></select></label>
-        <label>Max basis $/GPU-hr<input type="number" step="0.01" value={r.maxBasis} onChange={set('maxBasis')} /></label>
+        <label title="The most you'll pay above the Compute Signal index, after adjusting for spec">Max premium over index $/GPU-hr<input type="number" step="0.01" value={r.maxBasis} onChange={set('maxBasis')} /></label>
         <label>Node-months<input disabled value={(r.gpus / 8) * r.term} /></label>
       </div>
       {kind === 'EFP' && (
@@ -61,7 +61,7 @@ function Detail({ r, me, session, marks, award, providerQuote, openContract }) {
           <Stat k="Spec" v={`${r.sku} × ${r.gpus}`} sub={`${r.region} · ${r.ic}`} />
           <Stat k="Term" v={`${r.start} · ${r.term} mo`} sub={`${(r.gpus / 8) * r.term} node-months`} />
           <Stat k={r.kind === 'EFP' ? 'Strip futures avg' : 'Index'} v={'$' + fmt(ref)} cls="cream" />
-          <Stat k="Max basis" v={'+' + fmt(r.maxBasis)} />
+          <Stat k="Max premium" v={'+' + fmt(r.maxBasis)} />
           <Stat k="Counterparty" v={isOwner ? 'You' : r.buyer} />
         </div>
       </Panel>
@@ -69,7 +69,7 @@ function Detail({ r, me, session, marks, award, providerQuote, openContract }) {
       {!isOwner && r.status === 'open' && (
         <Panel title="Your quote">
           <div className="row" style={{ gap: 14, alignItems: 'flex-end' }}>
-            <label style={{ width: 200 }}>Basis over {r.kind === 'EFP' ? 'strip futures' : 'index'}<input type="number" step="0.01" value={basis} onChange={(e) => setBasis(Number(e.target.value))} /></label>
+            <label style={{ width: 200 }}>Premium over {r.kind === 'EFP' ? 'strip futures' : 'index'}<input type="number" step="0.01" value={basis} onChange={(e) => setBasis(Number(e.target.value))} /></label>
             <div className="stat"><div className="k">All-in $/GPU-hr</div><div className="v cream">{fmt(ref + basis)}</div></div>
             <div className="stat"><div className="k">Bond if awarded</div><div className="v">{usd(r.gpus * SIZE * (ref + basis))}</div></div>
             <button className="btn" onClick={() => providerQuote(r.id, basis)}>{r.myQuote != null ? 'Update quote' : 'Send quote'}</button>
@@ -79,17 +79,17 @@ function Detail({ r, me, session, marks, award, providerQuote, openContract }) {
       )}
 
       {(isOwner || r.status !== 'open') && (
-        <Panel title="Quotes" right={<span className="meth">Normalised to the reference spec with the basis table</span>}>
+        <Panel title="Quotes" right={<span className="meth" title="Quotes on a different spec (e.g. RoCE instead of InfiniBand) are adjusted to your spec using the published basis table">Adjusted to your spec, then ranked</span>}>
           {r.quotes.length === 0 ? <p className="note">Waiting for providers… quotes stream in as they respond.</p> : (
             <div className="tw"><table>
-              <thead><tr><th>Provider</th><th>Spec</th><th className="n">Basis</th><th className="n">Adj.</th><th className="n">All-in</th><th>Score</th><th></th></tr></thead>
+              <thead><tr><th>Provider</th><th>Spec</th><th className="n" title="Provider's premium over the index">Premium</th><th className="n" title="Adjustment for a spec different from yours">Spec adj.</th><th className="n" title="Index + premium + spec adjustment, $/GPU-hr">All-in</th><th title="0–100 from price, uptime SLA and provider tier">Score</th><th></th></tr></thead>
               <tbody>{ranked.map((q) => (
                 <tr key={q.id} className={q.fails.length ? 'fail' : q.id === r.awardedId ? 'sel' : ''}>
                   <td><b style={{ fontWeight: 500 }}>{isOwner && r.status === 'open' ? q.name.replace(/Helios Cloud/, 'Provider H') : q.name}</b><div className="note">{q.tier} · {q.uptime}% SLA</div></td>
                   <td>{q.region} · {q.ic}{q.fails.length > 0 && <div className="hint">{q.fails.join(' · ')}</div>}</td>
                   <td className="n">+{fmt(q.basis, 3)}</td><td className="n">{q.adj ? '+' + fmt(q.adj, 3) : '—'}</td>
                   <td className="n cream">{fmt(ref + q.norm, 3)}</td>
-                  <td>{q.fails.length ? <span className="pill crit">filtered</span> : <div className="row" style={{ gap: 8 }}><span className="mono">{q.score}</span><div className="bar"><i style={{ width: q.score + '%' }} /></div></div>}</td>
+                  <td>{q.fails.length ? <span className="pill crit" title={q.fails.join(' · ')}>excluded</span> : <div className="row" style={{ gap: 8 }}><span className="mono">{q.score}</span><div className="bar"><i style={{ width: q.score + '%' }} /></div></div>}</td>
                   <td>{isOwner && r.status === 'open' && !q.fails.length && <button className="btn" onClick={() => award(r.id, q.id)}>{q === best ? 'Award best' : 'Award'}</button>}{q.id === r.awardedId && <span className="pill good">awarded</span>}</td>
                 </tr>
               ))}</tbody>
@@ -110,7 +110,7 @@ function Detail({ r, me, session, marks, award, providerQuote, openContract }) {
             <div className="stats" style={{ marginTop: 14 }}>
               <Stat k="Hedge gain realised" v={usd(r.efp.realised)} cls={r.efp.realised >= 0 ? 'up' : 'dn'} />
               <Stat k="Physical price" v={'$' + fmt(r.price, 3)} />
-              <Stat k="Net cost $/GPU-hr" v={'$' + fmt(r.price - r.efp.gainPerHr, 3)} cls="cream" sub="≈ hedged price + basis" />
+              <Stat k="Net cost $/GPU-hr" v={'$' + fmt(r.price - r.efp.gainPerHr, 3)} cls="cream" sub="≈ hedged price + premium" />
             </div>
           )}
           <div style={{ marginTop: 14 }}><button className="btn" onClick={() => openContract(r.contractId)}>Track delivery →</button></div>
@@ -267,7 +267,7 @@ function SpreadDetail({ x, session, marks, tick, hitSpread, quoteSpread }) {
   const verb = (s) => (s === 'Buy' ? 'Buy' : 'Sell')
   return (
     <div className="stack">
-      <Panel title={`${x.id} · ${x.type} spread`} right={<span className={'pill ' + (x.status === 'open' ? 'warn' : 'good')}>{x.status === 'open' ? `Open · ${x.quotes.length} responses` : `Done with ${x.done.name}`}</span>}>
+      <Panel title={`${x.id} · ${x.type} spread`} right={<span className={'pill ' + (x.status === 'open' ? 'warn' : 'good')}>{x.status === 'open' ? `Open · ${x.quotes.length} ${x.quotes.length === 1 ? 'response' : 'responses'}` : `Done with ${x.done.name}`}</span>}>
         <div className="legs">
           <div className="legcard"><span className={sg > 0 ? 'up' : 'dn'}>{verb(x.side).toUpperCase()} {x.qty}</span><b className="mono">{x.a}</b><span className="note">mid {fmt(marks[x.a])}</span></div>
           <div className="legop">−{x.ratio !== 1 ? ` ${x.ratio}×` : ''}</div>
@@ -301,7 +301,7 @@ function SpreadDetail({ x, session, marks, tick, hitSpread, quoteSpread }) {
             <div key={q.id} className={'quote-row' + (won ? ' won' : '')}>
               <span>{q.mine === session ? 'You' : mine || x.status !== 'open' ? q.name : 'Market maker'}</span>
               <b className="mono cream">{fmt(q.px)}</b>
-              <span className="note">{edge >= 0 ? 'beats legging it by ' : 'worse than legging by '}{usd(Math.abs(edge))}</span>
+              <span className="note">{Math.abs(edge) < 0.5 ? 'same as legging it on screen' : (edge > 0 ? 'beats legging it by ' : 'worse than legging by ') + usd(Math.abs(edge))}</span>
               {mine && x.status === 'open' ? <button className="btn" onClick={() => hitSpread(x.id, q.id)}>{i === 0 ? 'Hit best' : 'Hit'}</button> : won ? <span className="pill good">traded</span> : <span />}
             </div>
           )
@@ -426,7 +426,7 @@ export default function Request(props) {
     const best = ok.length ? Math.min(...ok.map((q) => ref0 + q.norm)) : null
     return <Card key={r.id} on={cur?.key === r.id} onClick={() => open(r.id)} kind={r.kind === 'EFP' ? 'EFP' : 'RFQ'}
       title={`${r.sku} × ${r.gpus} GPUs · ${r.term} mo`} sub={`${r.region} · ${r.ic} · from ${r.start} · ${r.owner === session ? 'you' : r.buyer}`}
-      status={r.status === 'open' ? `${r.quotes.length} responses · ${r.closes}` : 'awarded'} statusCls={r.status === 'open' ? 'warn' : 'good'}
+      status={r.status === 'open' ? `${r.quotes.length} ${r.quotes.length === 1 ? 'response' : 'responses'} · ${r.closes}` : 'awarded'} statusCls={r.status === 'open' ? 'warn' : 'good'}
       ladder={r.quotes.length ? <Ladder ref0={ref0} pts={ok.map((q) => ref0 + q.norm)} best={best} better="← lower is better" /> : <div className="ladder empty"><span className="note">Waiting for providers…</span></div>}
       foot={best != null ? <>Best all-in <b className="cream mono">${fmt(best, 3)}</b> · ref ${fmt(ref0)}</> : null} />
   }
@@ -435,7 +435,7 @@ export default function Request(props) {
     const best = x.quotes.length ? x.quotes.map((q) => q.px).reduce((b, p) => (sg * p < sg * b ? p : b)) : null
     return <Card key={x.id} on={cur?.key === x.id} onClick={() => open(x.id)} kind="Spread"
       title={`${x.side} ${x.a} / ${x.b.split(' ')[1] && x.a.split(' ')[0] === x.b.split(' ')[0] ? x.b.split(' ')[1] : x.b}`} sub={`${x.type} · ${x.qty} contracts · ${x.owner === session ? 'you' : x.by}`}
-      status={x.status === 'open' ? `${x.quotes.length} responses` : 'traded'} statusCls={x.status === 'open' ? 'warn' : 'good'}
+      status={x.status === 'open' ? `${x.quotes.length} ${x.quotes.length === 1 ? 'response' : 'responses'}` : 'traded'} statusCls={x.status === 'open' ? 'warn' : 'good'}
       ladder={x.quotes.length ? <Ladder ref0={ref0} pts={x.quotes.map((q) => q.px)} best={best} better={sg > 0 ? '← lower is better' : 'higher is better →'} /> : <div className="ladder empty"><span className="note">Waiting for market makers…</span></div>}
       foot={<>{x.status === 'done' ? 'Traded' : 'Best'} <b className="cream mono">{x.status === 'done' ? fmt(x.done.px) : best != null ? fmt(best) : '—'}</b> · screen {fmt(ref0)}</>} />
   }
