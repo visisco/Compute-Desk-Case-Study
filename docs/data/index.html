@@ -239,7 +239,7 @@ footer a{color:var(--muted)}
   <div class="board" aria-label="Example index board">
     <div class="hd"><span>Compute Signal · 1-year rental, US · $/GPU-hr</span><span class="live"><i></i>Example data</span></div>
     <div class="chart">
-      <div class="top"><span class="nm" id="bName">H100-US-1Y</span><span class="px" id="bPx">2.88</span><span class="ch" id="bCh"></span></div>
+      <div class="top"><span class="nm" id="bName">H100-US-1Y</span><span class="px" id="bPx">2.92</span><span class="ch" id="bCh"></span></div>
       <svg id="spark" viewBox="0 0 400 150" preserveAspectRatio="none" role="img" aria-label="90-day index history"></svg>
     </div>
     <div class="rows" id="rows">
@@ -416,10 +416,10 @@ footer a{color:var(--muted)}
 (function(){
   // ---- Example index board (illustrative series, deterministic) ----
   var IDX = [
-    {id:'H100-US-1Y', fut:'H1UF Z26', end:2.88, start:3.06, futPx:2.92, seed:3},
-    {id:'H200-US-1Y', fut:'H2UF Z26', end:3.71, start:3.62, futPx:3.74, seed:7},
-    {id:'B200-US-1Y', fut:'B2UF Z26', end:5.61, start:5.12, futPx:5.66, seed:11},
-    {id:'B300-US-1Y', fut:'B3UF Z26', end:7.42, start:5.26, futPx:7.55, seed:17}
+    {id:'H100-US-1Y', fut:'H1UF Z26', end:2.92, start:3.014, futPx:2.90, seed:3},
+    {id:'H200-US-1Y', fut:'H2UF Z26', end:3.51, start:3.428, futPx:3.50, seed:7},
+    {id:'B200-US-1Y', fut:'B2UF Z26', end:5.64, start:5.045, futPx:5.66, seed:11},
+    {id:'B300-US-1Y', fut:'B3UF Z26', end:7.52, start:5.333, futPx:7.58, seed:17}
   ];
   function series(o){
     var n=90, out=[], s=o.seed;
