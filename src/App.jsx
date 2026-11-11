@@ -9,11 +9,13 @@ import Request from './Request.jsx'
 import Integrate from './Integrate.jsx'
 import Settings from './Settings.jsx'
 import Exposure from './Hedge.jsx'
+import Convert from './Convert.jsx'
 
 // Compute Desk Exchange prototype. Login picks an account (each stands in for a participant
 // type); all market data is simulated locally around the example forward curves.
 
-const TABS = [['home', 'Home'], ['trade', 'Trade'], ['exposure', 'Exposure'], ['request', 'Request'], ['integrate', 'Integrate']]
+const TABS = [['home', 'Home'], ['trade', 'Trade'], ['exposure', 'Exposure'], ['request', 'Request'], ['convert', 'Convert to Physical'], ['integrate', 'Integrate']]
+const canConvert = (kind) => kind === 'end_user' || kind === 'provider'
 
 let seq = 4100
 const nextId = (p) => `${p}-${++seq}`
@@ -254,7 +256,7 @@ export default function App() {
         <div className="row" style={{ gap: 22 }}>
           <div className="brand"><Logo /><span>Compute Desk Exchange</span></div>
           <nav className="nav">
-            {TABS.map(([k, l]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>)}
+            {TABS.filter(([k]) => k !== 'convert' || canConvert(me.kind)).map(([k, l]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>)}
           </nav>
         </div>
         <div className="row" style={{ gap: 18 }}>
@@ -287,6 +289,7 @@ export default function App() {
         {tab === 'integrate' && <Integrate {...ctx} />}
         {tab === 'settings' && <Settings {...ctx} />}
         {tab === 'exposure' && <Exposure {...ctx} />}
+        {tab === 'convert' && <Convert key={prefill?.at || 'convert'} {...ctx} />}
       </main>
     </div>
   )

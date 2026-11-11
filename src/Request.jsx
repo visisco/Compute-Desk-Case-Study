@@ -460,7 +460,7 @@ export default function Request(props) {
         </div>
         <div className="tiles">
           {kinds.map((k) => (
-            <button key={k} className={'tile' + (compose === k ? ' on' : '')} onClick={() => setCompose(k)}>
+            <button key={k} className={'tile' + (compose === k ? ' on' : '')} onClick={() => (k === 'EFP' ? props.setTab('convert') : setCompose(k))}>
               <span className="ti">{KINDS[k].icon}</span><b>{KINDS[k].title}</b><span className="note">{KINDS[k].blurb}</span>
             </button>
           ))}

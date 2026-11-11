@@ -252,7 +252,7 @@ function Bottom({ me, acct, marks, placeOrder, cancelOrder, setFocus, setTab, se
                     <td className="n">{usd(Math.abs(p.qty) * SIZE * marks[k] * IM_RATE)}</td>
                     <td className="actions">
                       <button className="chip-btn" onClick={() => placeOrder({ sym: k, side: p.qty > 0 ? 'Sell' : 'Buy', qty: Math.abs(p.qty), type: 'Market', px: 0, tif: 'IOC' })}>Close</button>
-                      {canConvert && <button className="chip-btn accent" onClick={() => { setPrefill({ kind: 'EFP', sku: skuOf(k), start: INSTRUMENTS.find((i) => i.sym === k).m }); setTab('request') }}>Convert to Physical</button>}
+                      {canConvert && <button className="chip-btn accent" onClick={() => { setPrefill({ kind: 'EFP', sku: skuOf(k), start: INSTRUMENTS.find((i) => i.sym === k).m, at: Date.now() }); setTab('convert') }}>Convert to Physical</button>}
                     </td>
                   </tr>
                 )

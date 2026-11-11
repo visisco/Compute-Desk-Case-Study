@@ -120,7 +120,7 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:1px solid 
 .nav button.on{background:var(--raise);color:var(--fg);font-weight:500}
 .mini-tk{display:flex;gap:16px;font-family:var(--mono);font-size:12.5px}
 .mini-tk i{font-style:normal;color:var(--muted)}.mini-tk b{color:var(--cream);font-weight:600}.mini-tk em{font-style:normal;font-size:11.5px}
-@media (max-width:1250px){.mini-tk{display:none}}
+@media (max-width:1560px){.mini-tk{display:none}}
 .acct{position:relative}
 .acct-btn{display:flex;align-items:center;gap:9px;background:transparent;border:1px solid var(--line-strong);border-radius:9px;padding:4px 10px 4px 4px;color:var(--fg);cursor:pointer}
 .acct-name{display:flex;flex-direction:column;text-align:left;font-size:13px;line-height:1.2}
