@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { INSTRUMENTS, SIZE, IM_RATE, fmt } from './data.js'
-import { Panel, Seg } from './ui.jsx'
+import { Panel, Seg, saveCsv } from './ui.jsx'
 import { ApiKeys } from './Integrate.jsx'
 
 const SECTIONS = [['profile', 'Profile & security'], ['appearance', 'Appearance'], ['alerts', 'Notifications & alerts'], ['trading', 'Trading preferences'], ['keys', 'API keys'], ['reports', 'Reports & exports']]
@@ -14,17 +14,6 @@ const EVENTS = [
 
 function load(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v) } catch { return d } }
 function save(k, v) { try { localStorage.setItem(k, JSON.stringify(v)) } catch { /* storage unavailable */ } }
-
-function csv(name, rows) {
-  const body = rows.map((r) => r.map((c) => (typeof c === 'string' && c.includes(',') ? `"${c}"` : c)).join(',')).join('\n')
-  try {
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(new Blob([body], { type: 'text/csv' }))
-    a.download = name
-    a.click()
-    return true
-  } catch { return false }
-}
 
 export default function Settings({ me, acct, marks, keys, setKeys, theme, setTheme, requests, spreads, contracts, session }) {
   const [sec, setSec] = useState('appearance')
@@ -52,7 +41,7 @@ export default function Settings({ me, acct, marks, keys, setKeys, theme, setThe
     ['requests', 'Requests and quotes', 'Your RFQs, EFPs and spread requests with every response.', () => [['id', 'kind', 'detail', 'status', 'responses'], ...requests.filter((r) => r.owner === session).map((r) => [r.id, r.kind, `${r.sku} x ${r.gpus} ${r.start} ${r.term}mo`, r.status, r.quotes.length]), ...spreads.filter((x) => x.owner === session).map((x) => [x.id, 'Spread', `${x.side} ${x.a} / ${x.b} x ${x.qty}`, x.status, x.quotes.length])]],
     ['delivery', 'Delivery and attestation', 'Node-Month Contracts, Clear Verified results and monthly settlements.', () => [['contract', 'sku', 'gpus', 'months', 'price', 'provider', 'stage', 'month', 'uptime'], ...contracts.filter((c) => c.buyer === me.name || c.provider === me.name).map((c) => [c.id, c.sku, c.gpus, c.months, fmt(c.price, 3), c.provider, c.stage, c.month, c.uptime])]],
   ]
-  const download = (r) => { const ok = csv(`cdx-${r[0]}-${range.toLowerCase()}.csv`, r[3]()); setSent(ok ? r[1] : 'blocked') }
+  const download = async (r) => { const st = await saveCsv(`cdx-${r[0]}-${range.toLowerCase()}.csv`, r[3]()); setSent(st === 'saved' ? r[1] : st) }
 
   return (
     <div className="stack">
@@ -130,7 +119,7 @@ export default function Settings({ me, acct, marks, keys, setKeys, theme, setThe
                     <div key={r[0]} className="report"><div><b>{r[1]}</b><div className="note">{r[2]}</div></div><button className="btn ghost" onClick={() => download(r)}>CSV ↓</button></div>
                   ))}
                 </div>
-                {sent && <div className={'callout ' + (sent === 'blocked' ? '' : 'good')} style={{ marginTop: 12 }}>{sent === 'blocked' ? 'This viewer blocked the download. Open the prototype in a browser tab to save CSVs.' : `${sent} downloaded (${range}).`}</div>}
+                {sent && sent !== 'declined' && <div className={'callout ' + (sent === 'blocked' ? '' : 'good')} style={{ marginTop: 12 }}>{sent === 'blocked' ? 'Downloads are not available in this view. Open the prototype in a browser tab to save CSVs.' : `${sent} saved (${range}).`}</div>}
                 <p className="note">Official monthly statements and tax forms come from your FCM ({me.fcm}). These are exchange-side records.</p>
               </Panel>
               <Panel title="Scheduled reports">

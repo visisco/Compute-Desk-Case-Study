@@ -41,3 +41,21 @@ export const Panel = ({ title, right, children, className, style }) => (
 export const Logo = () => (
   <svg className="logo" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3c4 1 7 3 9 6l5-2-3 4c1 3 1 6 0 10-2-4-4-6-7-7l-4 2 2-4C5 10 4 7 5 3z" /></svg>
 )
+
+// Save a CSV. Inside a claude.ai artifact the viewer confirms through the downloads capability;
+// in a normal browser tab it falls back to a plain download.
+export async function saveCsv(filename, rows) {
+  const body = rows.map((r) => r.map((c) => (typeof c === 'string' && /[",\n]/.test(c) ? `"${c.replace(/"/g, '""')}"` : c)).join(',')).join('\n')
+  let dl = null
+  try { dl = window.claude?.use ? await window.claude.use('downloads') : null } catch { dl = null }
+  if (dl) {
+    try { await dl.save({ filename, data: body }); return 'saved' } catch (e) { return e?.code === 'declined' ? 'declined' : 'blocked' }
+  }
+  try {
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(new Blob([body], { type: 'text/csv' }))
+    a.download = filename
+    a.click()
+    return 'saved'
+  } catch { return 'blocked' }
+}

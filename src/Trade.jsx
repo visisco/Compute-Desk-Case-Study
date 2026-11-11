@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { SKUS, MONTHS, SIZE, TICK, IM_RATE, FEE, INSTRUMENTS, fmt, usd, sym, skuOf, roundTick, contractName } from './data.js'
 import { candles, stats24, book, TF, simulate, top } from './market.js'
-import { Seg } from './ui.jsx'
+import { Seg, saveCsv } from './ui.jsx'
 
 const WIDGETS = [['markets', 'Markets'], ['chart', 'Price chart'], ['depth', 'Depth chart'], ['book', 'Order book'], ['ticket', 'Order ticket'], ['bottom', 'Positions & blotter']]
 const PRESETS = {
@@ -225,10 +225,7 @@ function Bottom({ me, acct, marks, placeOrder, cancelOrder, setFocus, setTab, se
   const orders = acct.orders.filter((o) => okSku(o.sym))
   const canConvert = me.kind === 'end_user' || me.kind === 'provider'
   const tabs = [['Positions', pos.length], ['Open orders', orders.length], ['Closed & settled', closed.length], ['Trade blotter', fills.length]]
-  const exportCsv = () => {
-    const csv = ['time,contract,side,qty,price,venue,status', ...fills.map((f) => [f.ts, f.sym, f.side, f.qty, f.px, f.venue, f.status].join(','))].join('\n')
-    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = 'blotter.csv'; a.click()
-  }
+  const exportCsv = () => saveCsv('cdx-blotter.csv', [['time', 'fill_id', 'order_id', 'contract', 'side', 'qty', 'price', 'venue', 'status'], ...fills.map((f) => [f.ts, f.id, f.order || '', f.sym, f.side, f.qty, f.px, f.venue, f.status])])
   return (
     <div className="w w-bottom">
       <div className="w-head">
