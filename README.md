@@ -12,21 +12,25 @@ npm run dev      # local dev server
 npm run build    # single-file build in dist/index.html (open directly in a browser)
 ```
 
-## Demo script (about 5 minutes)
+## Demo script (about 6 minutes)
 
-Use the **Viewing as** switch (top right) to change participant type. Tabs, positions and the default screen change with it.
-
-1. **End user (AI lab)** opens on **EFP**. They are long a 6-month H100 futures strip (64/month, bought at $2.50).
-   Request EFP quotes, then accept the best one. Both legs book together: futures flattened and margin released, physical contract signed. Net cost ≈ hedged price + basis.
-2. **Delivery**: fund escrow, post bond, hand over nodes. Click **Fail acceptance**, then **Cure with backup provider** (paid from the bond). Settle a month.
-3. **Futures**: forward curve vs index, order book, order ticket, positions with FCM margin.
-4. **Physical RFQ**: standard term sheet, then a blind RFQ. Quotes are normalised to the index spec and ranked; non-matching quotes show why.
-5. **Provider**: quote an open RFQ, then take the other side of an EFP (offsets their short hedge).
-6. **Market maker / Speculator**: futures and API only. The **API** tab shows REST, WebSocket and FIX examples, a live stream and entitlements.
-7. **Onboard**: the 7-stage lifecycle for each participant type, with a checklist.
+1. **Login.** Continue, then Verify, then pick **Northwind AI** (end user).
+2. **Home.** Equity, collateral split (FCM margin vs Clear Escrow), index cards, and the "For you" insight.
+3. **Trade.** Sort Markets by "Tightest", pick H1UF M27, choose Market, 128 contracts and Review. Read the slippage and margin, then confirm. The receipt walks through Accepted, Filled, Sent to FCM and Cleared by DCO. Then try a 6-month **Strip**, and on the review use **Get a block quote instead**.
+4. **Exposure.** See where a move in GPU rates hurts, and open a suggested hedge in Trade.
+5. **Request.** Your requests and their responses sit on one board. Start a **Spread trade** (B200 vs H100), request quotes and hit the best.
+6. **Convert to Physical.** EFP a 6-month H100 strip into 64 GPUs, then track delivery and cure a failed Clear Verified check.
+7. **Switch to Lattice Trading** (market maker) and quote an open spread request on Request.
+8. **Integrate and Settings.** API keys, quickstart for REST, WebSocket and FIX, light mode, alerts and CSV reports.
 
 ## Structure
 
-- `src/data.js`: example data, contract constants (730 GPU-hr contract, tick), lifecycle, quote scoring
-- `src/App.jsx`: shell, role switcher, simulated market feed
-- `src/screens.jsx`: Onboard, Futures, Physical RFQ, EFP, Delivery, API
+- `src/App.jsx`: shell, accounts, simulated market, order matching, RFQ, spread and EFP booking
+- `src/data.js`: example data, contract constants (730 GPU-hr contract, $0.01 tick, 12 monthlies), symbols
+- `src/market.js`: candles, order book depth by month and SKU, walk-the-book fills
+- `src/Login.jsx`, `src/Home.jsx`: sign-in and Platform Home
+- `src/Trade.jsx`: configurable widgets, markets, charts, book, order ticket, positions and blotter
+- `src/Hedge.jsx`, `src/exposure.js`: Exposure tab and hedge finder
+- `src/Request.jsx`: request board, physical RFQ, spread and flex requests, delivery tracker
+- `src/Convert.jsx`: guided Convert to Physical (EFP)
+- `src/Integrate.jsx`, `src/Settings.jsx`: API keys and quickstarts; theme, alerts, preferences, reports
