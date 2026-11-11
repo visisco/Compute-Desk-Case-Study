@@ -123,5 +123,5 @@ export const SEED_SPREADS = [
 
 export const SEED_KEYS = [
   { id: 'ak_live_7f3c', name: 'Treasury system', scopes: ['read:market', 'read:account', 'trade:futures'], env: 'Production', created: '2026-09-02', last: '2 min ago' },
-  { id: 'ak_test_19ab', name: 'Sandbox', scopes: ['read:market', 'read:account', 'trade:futures', 'request:rfq'], env: 'Test', created: '2026-08-14', last: '3 days ago' },
+  { id: 'ak_test_19ab', name: 'Sandbox', scopes: ['read:market', 'read:account', 'trade:futures', 'request:rfq'], env: 'Sandbox', created: '2026-08-14', last: '3 days ago' },
 ]
