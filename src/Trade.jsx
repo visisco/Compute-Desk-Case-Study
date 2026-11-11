@@ -490,7 +490,7 @@ function Ticket({ focus, setFocus, marks, tick, placeOrder, px, setPx, positions
           <label>{mode === 'Strip' ? 'Contracts per month' : 'Contracts'}<input type="number" min="1" value={qty} onChange={(e) => setQty(e.target.value)} /></label>
           {mode === 'RFQ' ? <label>Screen mid<input disabled value={fmt(mid)} /></label> : mode === 'Single'
             ? <label>{type === 'Stop' ? 'Trigger' : 'Price'} $/GPU-hr<input disabled={type === 'Market'} placeholder={fmt(singlePx)} value={type === 'Market' ? '' : px} onChange={(e) => setPx(e.target.value)} /></label>
-            : <label>Months<select value={n} onChange={(e) => setN(Number(e.target.value))}>{[2, 3, 6, 9, 12].filter((k) => ins.i + k <= 12).map((k) => <option key={k}>{k}</option>)}</select></label>}
+            : <label>Months<select value={n} onChange={(e) => setN(Number(e.target.value))}>{[...new Set([2, 3, 6, 9, 12, n])].sort((x, y) => x - y).filter((k) => ins.i + k <= 12 || k === n).map((k) => <option key={k}>{k}</option>)}</select></label>}
         </div>
         {mode === 'Strip' && type === 'Limit' && <label>Limit per leg: ticks through best price<input type="number" min="0" max="10" value={thru} onChange={(e) => setThru(Number(e.target.value))} /></label>}
         {mode === 'Strip' && <div className="strip">{stripSyms.map((s) => <span key={s}><b className="mono">{s.split(' ')[1]}</b>{fmt(marks[s])}</span>)}</div>}
