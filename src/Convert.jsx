@@ -8,7 +8,7 @@ import './convert.css'
 // reported to the exchange off the order book and cleared at the DCO through each side's FCM.
 
 const LOT = 8
-const STEPS = [['Position', 'Pick what to convert'], ['Spec', 'Set the delivery spec'], ['Quotes', 'Providers quote basis'], ['Review', 'Check both legs'], ['Booked', 'Exchange and clearing']]
+const STEPS = [['Position', 'Pick what to convert'], ['Spec', 'Set the delivery spec'], ['Quotes', 'Providers quote a premium'], ['Review', 'Check both legs'], ['Booked', 'Exchange and clearing']]
 const mon = (m) => m[0] + m.slice(1, 3).toLowerCase() + ' ' + m.slice(3)
 const phys = (sku, m) => sym(sku, m).replace('UF', 'UP')
 const monthOf = (s) => INSTRUMENTS.find((i) => i.sym === s).m
@@ -130,7 +130,7 @@ function BuyerFlow({ me, acct, marks, requests, createRequest, award, setTab, pr
             <div className="cv-form">
               <label>Region<select value={spec.region} onChange={(e) => setSpec({ ...spec, region: e.target.value })}><option>US-East</option><option>US-Central</option><option>Any US</option></select></label>
               <label>Interconnect<select value={spec.ic} onChange={(e) => setSpec({ ...spec, ic: e.target.value })}><option>InfiniBand</option><option>RoCE</option></select></label>
-              <label>Max basis over strip ($/GPU-hr)<input type="number" step="0.01" value={spec.maxBasis} onChange={(e) => setSpec({ ...spec, maxBasis: Number(e.target.value) })} /></label>
+              <label>Max premium over strip price ($/GPU-hr)<input type="number" step="0.01" value={spec.maxBasis} onChange={(e) => setSpec({ ...spec, maxBasis: Number(e.target.value) })} /></label>
             </div>
             <div className="callout" style={{ marginTop: 16 }}>
               <div className="eyebrow">Node-Month contract you'll receive</div>
@@ -146,9 +146,9 @@ function BuyerFlow({ me, acct, marks, requests, createRequest, award, setTab, pr
 
       {step === 2 && r && (
         <Panel title={`3 · Provider quotes · ${r.id}`} right={<span className={'pill ' + (ranked.length < 4 ? 'warn' : 'good')}>{ranked.length < 4 ? `Collecting · ${ranked.length} of 4 in` : 'All providers in'}</span>}>
-          <p className="note" style={{ marginTop: -4 }}>Each provider quotes a basis over the strip futures price (<b className="mono cream">${fmt(fAvg)}</b>). Quotes are normalised to your spec with the basis table, then ranked. Pick one to review both legs.</p>
+          <p className="note" style={{ marginTop: -4 }}>Each provider quotes a premium over the strip futures price (<b className="mono cream">${fmt(fAvg)}</b>). Quotes on a different spec are adjusted to yours, then ranked. Pick one to review both legs.</p>
           <div className="stack" style={{ gap: 8, marginTop: 10 }}>
-            <div className="cv-q" style={{ background: 'transparent', border: 0, padding: '0 12px' }}><span className="note">Provider</span><span className="note">Region · fabric</span><span className="note">Basis (norm.)</span><span className="note">All-in $/GPU-hr</span><span className="note">Score</span><span /></div>
+            <div className="cv-q" style={{ background: 'transparent', border: 0, padding: '0 12px' }}><span className="note">Provider</span><span className="note">Region · fabric</span><span className="note">Premium (adj.)</span><span className="note">All-in $/GPU-hr</span><span className="note">Score</span><span /></div>
             {ranked.length === 0 && <p className="note">Waiting for the first quote…</p>}
             {ranked.map((x) => (
               <div key={x.id} className={'cv-q' + (x === best ? ' best' : '') + (x.fails.length ? ' out' : '')}>
@@ -179,7 +179,7 @@ function BuyerFlow({ me, acct, marks, requests, createRequest, award, setTab, pr
               <div className="cv-leg">
                 <div className="eyebrow" style={{ margin: 0 }}>Physical leg · Node-Month contract</div>
                 <div><b>Receive {nodes} nodes × {term} months</b> of {sku} from {q.name}</div>
-                <div className="kv">Price (strip + basis +{fmt(q.norm, 3)})<b>${fmt(price, 3)} / GPU-hr</b></div>
+                <div className="kv">Price (strip + premium +{fmt(q.norm, 3)})<b>${fmt(price, 3)} / GPU-hr</b></div>
                 <div className="kv">Clear Escrow, month 1 (you fund)<b>{usd(gpus * SIZE * price)}</b></div>
                 <div className="kv">Performance bond (provider posts)<b>{usd(gpus * SIZE * price)}</b></div>
               </div>
@@ -198,7 +198,7 @@ function BuyerFlow({ me, acct, marks, requests, createRequest, award, setTab, pr
                 <div className="kv">Physical price<b>${fmt(price, 3)}</b></div>
                 <div className="kv">Less hedge gain per GPU-hr<b className={gainPerHr >= 0 ? 'up' : 'dn'}>−${fmt(gainPerHr, 3)}</b></div>
                 <div className="kv" style={{ borderTop: '1px solid var(--line)', paddingTop: 10 }}>Net cost per GPU-hr<b className="cream" style={{ fontSize: 18 }}>${fmt(price - gainPerHr, 3)}</b></div>
-                <p className="note">≈ the price you hedged at plus the basis. Rising GPU prices since you hedged don't reach you.</p>
+                <p className="note">≈ the price you hedged at plus the premium. Rising GPU prices since you hedged don't reach you.</p>
                 <div className="kv">Initial margin released<b>{usd(imRel)}</b></div>
               </div>
             </Panel>
@@ -279,7 +279,7 @@ function ProviderView({ session, acct, marks, requests, providerQuote, setTab })
         </Panel>
         <Panel title="Your quote">
           <div className="cv-form" style={{ gridTemplateColumns: '1fr' }}>
-            <label>Basis over strip ($/GPU-hr)<input type="number" step="0.01" value={basis} onChange={(e) => setBasis(Number(e.target.value))} /></label>
+            <label>Premium over strip price ($/GPU-hr)<input type="number" step="0.01" value={basis} onChange={(e) => setBasis(Number(e.target.value))} /></label>
           </div>
           <div className="stack" style={{ gap: 8, marginTop: 12 }}>
             <div className="kv">All-in price to buyer<b className="cream">${fmt(fAvg + basis, 3)}</b></div>

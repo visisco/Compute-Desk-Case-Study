@@ -1,5 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { SKUS, MONTHS, SIZE, TICK, IM_RATE, FEE, INSTRUMENTS, fmt, usd, sym, skuOf, roundTick, contractName } from './data.js'
+
+// 'DEC26' -> 'Dec 2026'
+const monthName = (m) => `${m[0]}${m.slice(1, 3).toLowerCase()} 20${m.slice(3)}`
 import { candles, stats24, book, TF, simulate, top } from './market.js'
 import { Seg, saveCsv } from './ui.jsx'
 
@@ -19,7 +22,7 @@ function saveLayout(w) {
 
 /* ---------- Markets table ---------- */
 const SORTS = [['curve', 'Curve'], ['vol', 'Volume'], ['spread', 'Tightest'], ['depth', 'Deepest']]
-function Markets({ marks, tick, focus, setFocus, positions, flash }) {
+function Markets({ marks, tick, focus, setFocus, positions, flash, onHit }) {
   const [sku, setSku] = useState('All')
   const [q, setQ] = useState('')
   const [exp, setExp] = useState('All')
@@ -27,7 +30,7 @@ function Markets({ marks, tick, focus, setFocus, positions, flash }) {
   const [held, setHeld] = useState(false)
   const [fav, setFav] = useState([sym('H100', 'JUN27'), sym('B200', 'MAR27')])
   const [favOnly, setFavOnly] = useState(false)
-  const rows = INSTRUMENTS.filter((i) => (sku === 'All' || i.sku === sku) && (exp === 'All' || i.i < 3) && (!q || i.sym.toLowerCase().includes(q.toLowerCase()) || i.m.toLowerCase().includes(q.toLowerCase())) && (!held || positions[i.sym]) && (!favOnly || fav.includes(i.sym)))
+  const rows = INSTRUMENTS.filter((i) => (sku === 'All' || i.sku === sku) && (exp === 'All' || i.i < 3) && (!q || [i.sym, i.m, i.sku, `${i.sku} ${monthName(i.m)}`].some((t) => t.toLowerCase().includes(q.toLowerCase()))) && (!held || positions[i.sym]) && (!favOnly || fav.includes(i.sym)))
     .map((i) => ({ ...i, st: stats24(i.sym, marks[i.sym]), t: top(i.sym, marks[i.sym], tick) }))
   if (sort === 'vol') rows.sort((x, y) => y.st.vol - x.st.vol)
   if (sort === 'spread') rows.sort((x, y) => x.t.spread - y.t.spread || y.t.depth - x.t.depth)
@@ -36,7 +39,7 @@ function Markets({ marks, tick, focus, setFocus, positions, flash }) {
     <div className="w w-markets">
       <div className="w-head"><span>Markets</span><span className="note">{rows.length} contracts</span></div>
       <div className="w-tools">
-        <input placeholder="Search H1UF, JUN27…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input placeholder="Search H100, Jun 2027, H1UF…" value={q} onChange={(e) => setQ(e.target.value)} />
         <Seg small value={sku} options={['All', ...Object.keys(SKUS)]} onChange={setSku} />
         <div className="row" style={{ gap: 6 }}>
           <Seg small value={exp} options={[['All', 'All months'], ['Front', 'Front 3']]} onChange={setExp} />
@@ -54,9 +57,9 @@ function Markets({ marks, tick, focus, setFocus, positions, flash }) {
               return (
                 <tr key={i.sym} className={'click ' + (i.sym === focus ? 'sel ' : '') + (flash.includes(i.sym) ? 'flash' : '')} onClick={() => setFocus(i.sym)}>
                   <td><button className={'star' + (fav.includes(i.sym) ? ' on' : '')} onClick={(e) => { e.stopPropagation(); setFav(fav.includes(i.sym) ? fav.filter((x) => x !== i.sym) : [...fav, i.sym]) }} aria-label="Watchlist">★</button></td>
-                  <td><b className="mono">{i.sym}</b>{positions[i.sym] && <span className="dot" title="Held" />}<div className={'note ' + (i.st.chg >= 0 ? 'up' : 'dn')}>{fmt(marks[i.sym])} {i.st.chg >= 0 ? '+' : ''}{i.st.chg.toFixed(2)}%</div></td>
-                  <td className="n up">{fmt(i.t.bid.px)}</td>
-                  <td className="n dn">{fmt(i.t.ask.px)}</td>
+                  <td><b className="mono">{i.sym}</b>{positions[i.sym] && <span className="dot" title="Held" />}<div className="note" title={`24h ${i.st.chg >= 0 ? '+' : ''}${i.st.chg.toFixed(2)}%`}>{i.sku} · {monthName(i.m)}</div></td>
+                  <td className="n up hit" title={`Sell at ${fmt(i.t.bid.px)}`} onClick={(e) => { e.stopPropagation(); onHit(i.sym, 'Sell', i.t.bid.px) }}>{fmt(i.t.bid.px)}</td>
+                  <td className="n dn hit" title={`Buy at ${fmt(i.t.ask.px)}`} onClick={(e) => { e.stopPropagation(); onHit(i.sym, 'Buy', i.t.ask.px) }}>{fmt(i.t.ask.px)}</td>
                   <td className={'n ' + (ticks > 4 ? 'warn-t' : '')}>{ticks}</td>
                   <td className="n"><span className="liq"><i style={{ width: Math.min(100, i.t.depth / 6) + '%' }} /></span>{i.t.depth}</td>
                 </tr>
@@ -79,7 +82,7 @@ function Chart({ focus, marks, positions }) {
   const sku = skuOf(focus)
   const cs = useMemo(() => candles(focus, marks[focus], tf), [focus, tf, Math.round(marks[focus] * 100)])
   const idx = SKUS[sku].index
-  const W = 900, H = 360, VH = showVol ? 50 : 0, padR = 56
+  const W = 520, H = 320, VH = showVol ? 44 : 0, padR = 48
   const pos = positions[focus]
 
   if (view === 'Curve') {
@@ -160,7 +163,7 @@ function Depth({ focus, marks, tick }) {
   const B = bids.map((b) => ({ px: b.px, c: (cb += b.q) }))
   const A = asks.map((a) => ({ px: a.px, c: (ca += a.q) }))
   const lo = B[B.length - 1].px, hi = A[A.length - 1].px, max = Math.max(cb, ca)
-  const W = 600, H = 170
+  const W = 440, H = 170
   const X = (p) => 10 + ((p - lo) / (hi - lo)) * (W - 20)
   const Y = (c) => H - 22 - (c / max) * (H - 40)
   const step = (arr) => arr.map((p, i) => `${X(p.px)},${Y(p.c)}`).join(' ')
@@ -197,9 +200,9 @@ function Book({ focus, marks, tick, tape, onPx, orders }) {
           <table className="dense book">
             <thead><tr><th>Price</th><th className="n">Size</th><th className="n">GPU-hrs</th></tr></thead>
             <tbody>
-              {[...asks].reverse().map((a) => <tr key={'a' + a.px} className="ask click" onClick={() => onPx(a.px)}><td className="depthbar"><i style={{ width: `${(a.q / max) * 100}%` }} />{fmt(a.px)}</td><td className="n">{tag(a.px)}{a.q}</td><td className="n">{(a.q * SIZE).toLocaleString()}</td></tr>)}
+              {[...asks].reverse().map((a) => <tr key={'a' + a.px} className="ask click" title={`Buy at ${fmt(a.px)}`} onClick={() => onPx(a.px, 'Buy')}><td className="depthbar"><i style={{ width: `${(a.q / max) * 100}%` }} />{fmt(a.px)}</td><td className="n">{tag(a.px)}{a.q}</td><td className="n">{(a.q * SIZE).toLocaleString()}</td></tr>)}
               <tr className="mid"><td colSpan={3}>{fmt(marks[focus])} <span className="note">mid · index {fmt(SKUS[skuOf(focus)].index)}</span>{mine.filter((o) => o.px < asks[0].px - 1e-9 && o.px > bids[0].px + 1e-9).map((o) => <span key={o.id} className="mine">yours {o.side.toLowerCase()} {o.qty} @ {fmt(o.px)}</span>)}</td></tr>
-              {bids.map((b) => <tr key={'b' + b.px} className="bid click" onClick={() => onPx(b.px)}><td className="depthbar"><i style={{ width: `${(b.q / max) * 100}%` }} />{fmt(b.px)}</td><td className="n">{tag(b.px)}{b.q}</td><td className="n">{(b.q * SIZE).toLocaleString()}</td></tr>)}
+              {bids.map((b) => <tr key={'b' + b.px} className="bid click" title={`Sell at ${fmt(b.px)}`} onClick={() => onPx(b.px, 'Sell')}><td className="depthbar"><i style={{ width: `${(b.q / max) * 100}%` }} />{fmt(b.px)}</td><td className="n">{tag(b.px)}{b.q}</td><td className="n">{(b.q * SIZE).toLocaleString()}</td></tr>)}
             </tbody>
           </table>
         ) : (
@@ -214,7 +217,7 @@ function Book({ focus, marks, tick, tape, onPx, orders }) {
 }
 
 /* ---------- Bottom: positions, orders, closed, blotter ---------- */
-function Bottom({ me, acct, marks, placeOrder, cancelOrder, setFocus, setTab, setPrefill, btab: tab, setBTab, flash }) {
+function Bottom({ me, acct, marks, cancelOrder, setFocus, setTab, setPrefill, btab: tab, setBTab, flash, onClose }) {
   const [sku, setSku] = useState('All')
   const [venue, setVenue] = useState('All')
   const [side, setSide] = useState('All')
@@ -251,7 +254,7 @@ function Bottom({ me, acct, marks, placeOrder, cancelOrder, setFocus, setTab, se
                     <td className={'n ' + (pnl >= 0 ? 'up' : 'dn')}>{usd(pnl)}</td>
                     <td className="n">{usd(Math.abs(p.qty) * SIZE * marks[k] * IM_RATE)}</td>
                     <td className="actions">
-                      <button className="chip-btn" onClick={() => placeOrder({ sym: k, side: p.qty > 0 ? 'Sell' : 'Buy', qty: Math.abs(p.qty), type: 'Market', px: 0, tif: 'IOC' })}>Close</button>
+                      <button className="chip-btn" title="Load the closing order into the ticket for review" onClick={() => onClose(k, p.qty > 0 ? 'Sell' : 'Buy', Math.abs(p.qty))}>Close</button>
                       {canConvert && <button className="chip-btn accent" onClick={() => { setPrefill({ kind: 'EFP', sku: skuOf(k), start: INSTRUMENTS.find((i) => i.sym === k).m, at: Date.now() }); setTab('convert') }}>Convert to Physical</button>}
                     </td>
                   </tr>
@@ -289,6 +292,9 @@ export default function Trade(props) {
   const [w, setW] = useState(loadLayout)
   const [open, setOpen] = useState(false)
   const [px, setPx] = useState('')
+  // An order loaded from a click elsewhere on the screen (bid/ask, book level, Close). The ticket picks it up.
+  const [load, setLoad] = useState(null)
+  const loadOrder = (s, side, price, extra = {}) => { setFocus(s); setPx(price == null ? '' : fmt(price)); setLoad({ side, at: Date.now(), ...extra }) }
   const [btab, setBTab] = useState('Positions')
   const [flash, setFlash] = useState([])
   useEffect(() => { if (!flash.length) return; const t = setTimeout(() => setFlash([]), 1800); return () => clearTimeout(t) }, [flash])
@@ -321,9 +327,9 @@ export default function Trade(props) {
           <div><span>Mark</span><b className="cream">{fmt(marks[focus])}</b></div>
           <div><span>24h</span><b className={st.chg >= 0 ? 'up' : 'dn'}>{st.chg >= 0 ? '+' : ''}{st.chg.toFixed(2)}%</b></div>
           <div><span>Index</span><b>{fmt(idx)}</b></div>
-          <div><span>Basis</span><b className={marks[focus] >= idx ? 'up' : 'dn'}>{marks[focus] >= idx ? '+' : ''}{fmt(marks[focus] - idx)}</b></div>
+          <div title="Futures price minus today's Compute Signal index"><span>vs index</span><b className={marks[focus] >= idx ? 'up' : 'dn'}>{marks[focus] >= idx ? '+' : ''}{fmt(marks[focus] - idx)}</b></div>
           <div><span>24h vol</span><b>{st.vol.toLocaleString()}</b></div>
-          <div><span>Settles</span><b>Signal avg, {ins.m.slice(0, 3)} 20{ins.m.slice(3)}</b></div>
+          <div title={`Cash-settles to the average of the daily Compute Signal ${ins.sku} index over ${monthName(ins.m)}`}><span>Settles to</span><b>Index avg, {monthName(ins.m)}</b></div>
         </div>
         <div className="row" style={{ gap: 8, position: 'relative' }}>
           <Seg small value={preset} options={Object.entries(PRESETS).map(([k, p]) => [k, p.label])} onChange={(k) => set(PRESETS[k].w)} />
@@ -339,13 +345,13 @@ export default function Trade(props) {
 
       {(w.markets || center || right) && (
         <div className="tgrid" style={{ gridTemplateColumns: cols }}>
-          {w.markets && <Markets marks={marks} tick={tick} focus={focus} setFocus={pickFocus} positions={acct.positions} flash={flash} />}
+          {w.markets && <Markets marks={marks} tick={tick} focus={focus} setFocus={pickFocus} positions={acct.positions} flash={flash} onHit={(s, side, p) => loadOrder(s, side, p)} />}
           {center && <div className="col">{w.chart && <Chart focus={focus} marks={marks} positions={acct.positions} />}{w.depth && <Depth focus={focus} marks={marks} tick={tick} />}</div>}
-          {w.book && <div className="col"><Book focus={focus} marks={marks} tick={tick} tape={tape} onPx={(p) => setPx(fmt(p))} orders={acct.orders} /></div>}
-          {w.ticket && <div className="col"><Ticket focus={focus} marks={marks} tick={tick} placeOrder={placeOrder} px={px} setPx={setPx} positions={acct.positions} onExec={onExec} setBTab={setBTab} setFocus={pickFocus} prefill={props.prefill} setPrefill={props.setPrefill} askQuote={() => { props.setPrefill({ sym: focus }); props.setTab('request') }} /></div>}
+          {w.book && <div className="col"><Book focus={focus} marks={marks} tick={tick} tape={tape} onPx={(p, side) => loadOrder(focus, side, p)} orders={acct.orders} /></div>}
+          {w.ticket && <div className="col"><Ticket load={load} focus={focus} marks={marks} tick={tick} placeOrder={placeOrder} px={px} setPx={setPx} positions={acct.positions} onExec={onExec} setBTab={setBTab} setFocus={pickFocus} prefill={props.prefill} setPrefill={props.setPrefill} askQuote={() => { props.setPrefill({ sym: focus }); props.setTab('request') }} /></div>}
         </div>
       )}
-      {w.bottom && <Bottom {...props} setFocus={pickFocus} btab={btab} setBTab={setBTab} flash={flash} />}
+      {w.bottom && <Bottom {...props} setFocus={pickFocus} btab={btab} setBTab={setBTab} flash={flash} onClose={(s, side, qty) => { if (!w.ticket) set({ ...w, ticket: true }); loadOrder(s, side, null, { qty, type: 'Market', review: true }); window.scrollTo({ top: 0, behavior: 'smooth' }) }} />}
     </div>
   )
 }
@@ -364,7 +370,7 @@ function effect(pos, side, q) {
   return Math.sign(n) === Math.sign(cur) ? 'Reduces' : 'Flips'
 }
 
-function Ticket({ focus, setFocus, marks, tick, placeOrder, px, setPx, positions, onExec, setBTab, askQuote, prefill, setPrefill }) {
+function Ticket({ load, focus, setFocus, marks, tick, placeOrder, px, setPx, positions, onExec, setBTab, askQuote, prefill, setPrefill }) {
   const pf = prefill?.strip || prefill?.rfq
   const [mode, setMode] = useState(prefill?.strip ? 'Strip' : prefill?.rfq ? 'RFQ' : 'Single')
   const [side, setSide] = useState(pf?.side || 'Buy')
@@ -377,6 +383,7 @@ function Ticket({ focus, setFocus, marks, tick, placeOrder, px, setPx, positions
     if (pf) setPrefill(null)
   }, [])
   const [thru, setThru] = useState(0) // strip limit: ticks through the best price
+  const [autoReview, setAutoReview] = useState(0)
   const [review, setReview] = useState(null)
   const [receipt, setReceipt] = useState(null)
   const [rfq, setRfq] = useState(null)
@@ -403,6 +410,17 @@ function Ticket({ focus, setFocus, marks, tick, placeOrder, px, setPx, positions
     ;[1, 2, 3].forEach((k) => setTimeout(() => setReceipt((r) => (r ? { ...r, stage: Math.max(r.stage, k) } : r)), 450 * k))
   }
   const submit = () => { const p = plan(); if (skip) execute(p); else setReview(p) }
+
+  // A click on a bid, ask or book level loads that side and price; Close also loads size and opens the review.
+  useEffect(() => {
+    if (!load) return
+    setMode('Single'); setReceipt(null); setRfq(null); setReview(null)
+    setSide(load.side)
+    setType(load.type || 'Limit')
+    if (load.qty) setQty(load.qty)
+    if (load.review) setAutoReview(load.at)
+  }, [load?.at])
+  useEffect(() => { if (autoReview) { setReview(plan()); setAutoReview(0) } }, [autoReview])
 
   if (receipt) {
     const e = receipt.execs
@@ -496,6 +514,7 @@ function Ticket({ focus, setFocus, marks, tick, placeOrder, px, setPx, positions
         {mode === 'Strip' && <div className="strip">{stripSyms.map((s) => <span key={s}><b className="mono">{s.split(' ')[1]}</b>{fmt(marks[s])}</span>)}</div>}
         <div className="row" style={{ gap: 6 }}>{[8, 16, 64, 128].map((k) => <button key={k} className="chip-btn" onClick={() => setQty(k)}>{k}</button>)}<span className="note">contracts</span></div>
         {type !== 'Market' && mode !== 'RFQ' && <Seg small value={tif} options={['GTC', 'Day', 'IOC']} onChange={setTif} />}
+        <div className="kv" title="1 contract = 1 GPU for one month (730 GPU-hours)"><span>Covers</span><b>{q.toLocaleString()} GPU{q === 1 ? '' : 's'} × {mode === 'Strip' ? `${n} months` : monthName(ins.m)}</b></div>
         <div className="kv"><span>GPU-hours</span><b>{(q * SIZE * (mode === 'Strip' ? n : 1)).toLocaleString()}</b></div>
         <div className="kv"><span>Notional (approx.)</span><b>{usd(notional)}</b></div>
         {pos && mode === 'Single' && <div className="kv"><span>Current position</span><b className={pos.qty > 0 ? 'up' : 'dn'}>{pos.qty > 0 ? '+' : ''}{pos.qty} @ {fmt(pos.avg)}</b></div>}
@@ -504,7 +523,7 @@ function Ticket({ focus, setFocus, marks, tick, placeOrder, px, setPx, positions
           : <><button className={'btn ' + (side === 'Buy' ? 'buy' : 'sell')} onClick={submit}>{skip ? '' : 'Review '}{side.toLowerCase()} {mode === 'Strip' ? `${n}-month strip` : `${q} ${focus}`}</button>
         <button className="btn ghost" onClick={() => setRfq({ legs: plan() })}>Request a block quote</button></>}
         <button className="link" onClick={askQuote}>Trade this against another GPU or month? Spread RFQ →</button>
-        <span className="note">{mode === 'RFQ' ? 'Quotes are firm for 15 seconds and compared with the screen.' : mode === 'Strip' ? 'A strip sends one order per month. Each is a separate contract on the order book.' : `${contractName(ins.sku, ins.m)}. Cash settles to Signal Settlement.`}</span>
+        <span className="note">{mode === 'RFQ' ? 'Quotes are firm for 15 seconds and compared with the screen.' : mode === 'Strip' ? 'A strip sends one order per month. Each is a separate contract on the order book.' : `Cash-settles to the average of the daily Compute Signal ${ins.sku} index over ${monthName(ins.m)}. 1 contract = 1 GPU for the month.`}</span>
       </div>
     </div>
   )

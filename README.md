@@ -16,10 +16,10 @@ npm run build    # single-file build in dist/index.html (open directly in a brow
 
 1. **Login.** Continue, then Verify, then pick **Northwind AI** (end user).
 2. **Home.** Equity, collateral split (FCM margin vs Clear Escrow), index cards, and the "For you" insight.
-3. **Trade.** Sort Markets by "Tightest", pick H1UF M27, choose Market, 128 contracts and Review. Read the slippage and margin, then confirm. The receipt walks through Accepted, Filled, Sent to FCM and Cleared by DCO. Then try a 6-month **Strip**, and on the review use **Get a block quote instead**.
+3. **Trade.** Click any ask in Markets or the book to load a Buy at that price (a bid loads a Sell). Sort Markets by "Tightest", pick H1UF M27, choose Market, 128 contracts and Review. Read the slippage and margin, then confirm. The receipt walks through Accepted, Filled, Sent to FCM and Cleared by DCO. Then try a 6-month **Strip**, and on the review use **Get a block quote instead**.
 4. **Exposure.** See where a move in GPU rates hurts, and open a suggested hedge in Trade.
 5. **Request.** Your requests and their responses sit on one board. Start a **Spread trade** (B200 vs H100), request quotes and hit the best.
-6. **Convert to Physical.** EFP a 6-month H100 strip into 64 GPUs, then track delivery and cure a failed Clear Verified check.
+6. **Convert to Physical.** Not a nav tab: start it from **Convert to Physical** on a Trade position row (or the Home insight). EFP a 6-month H100 strip into 64 GPUs, then track delivery and cure a failed Clear Verified check.
 7. **Switch to Lattice Trading** (market maker) and quote an open spread request on Request.
 8. **Integrate and Settings.** API keys, quickstart for REST, WebSocket and FIX, light mode, alerts and CSV reports.
 
