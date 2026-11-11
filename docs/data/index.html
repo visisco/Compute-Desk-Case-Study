@@ -1,0 +1,529 @@
+<title>Compute Signal Data</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Compute Signal indexes and Compute Desk Exchange market data: datasets, plans, delivery and licensing.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap">
+<style>
+/* Layout: product page in one 1120px column. Hero with live-style index board, then audience switcher,
+   datasets grid, delivery strip, plans, trust, licensing questions, access form.
+   Compute Desk product look: warm charcoal, hairlines, cream for prices, steel blue for action. */
+:root{
+  --bg:#141413; --panel:#1b1a19; --raise:#232220; --line:#2d2c2a; --line-strong:#3a3936;
+  --fg:#ecebe6; --muted:#9a9890; --faint:#6f6d67;
+  --cream:#e8e2b9; --blue:#8fa9d6; --blue-ink:#121722;
+  --good:#7cc59a; --crit:#e2806f; --warn:#d9b26a;
+  --display:"Space Grotesk","Inter",system-ui,sans-serif;
+  --sans:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:15.5px;line-height:1.6;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+a{color:var(--blue);text-decoration:none}
+a:hover{text-decoration:underline}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:4px}
+.wrap{max-width:1120px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+code{font-family:var(--mono);font-size:.86em;background:var(--raise);border:1px solid var(--line);padding:1px 5px;border-radius:4px;color:var(--cream)}
+
+/* nav */
+.nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:rgba(20,20,19,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.nav .wrap{display:flex;align-items:center;gap:22px;padding-block:12px;flex-wrap:wrap}
+.logo{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:600;font-size:17px;color:var(--fg);letter-spacing:-.01em}
+.logo svg{width:24px;height:24px}
+.logo small{font-family:var(--sans);font-weight:400;font-size:12.5px;color:var(--muted)}
+.nav .links{display:flex;gap:18px;font-size:13.5px;flex-wrap:wrap}
+.nav .links a{color:var(--muted)}
+.nav .links a:hover{color:var(--fg);text-decoration:none}
+.nav .sp{flex:1}
+.btn{display:inline-flex;align-items:center;gap:8px;border-radius:7px;padding:9px 16px;font:inherit;font-size:14px;font-weight:600;cursor:pointer;border:1px solid transparent;text-decoration:none}
+.btn:hover{text-decoration:none}
+.btn.pri{background:var(--blue);color:var(--blue-ink)}
+.btn.pri:hover{background:#a3b9e0}
+.btn.sec{background:transparent;color:var(--fg);border-color:var(--line-strong)}
+.btn.sec:hover{background:var(--raise)}
+.btn.sm{padding:6px 12px;font-size:13px}
+@media (max-width:760px){.nav .links{display:none}}
+
+/* hero */
+.hero{padding-block:64px 40px;display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:48px;align-items:center}
+@media (max-width:900px){.hero{grid-template-columns:minmax(0,1fr);padding-block:40px 28px;gap:32px}}
+.kicker{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--cream)}
+h1{font-family:var(--display);font-weight:600;font-size:clamp(36px,5.4vw,58px);line-height:1.04;letter-spacing:-.03em;margin:14px 0 18px;text-wrap:balance}
+h1 em{font-style:normal;color:var(--cream)}
+.hero p.lead{font-size:18px;color:var(--muted);max-width:52ch;margin:0 0 26px}
+.cta{display:flex;gap:10px;flex-wrap:wrap}
+.proof{display:flex;gap:26px;flex-wrap:wrap;margin-top:32px;padding-top:20px;border-top:1px solid var(--line)}
+.proof div{display:flex;flex-direction:column}
+.proof b{font-family:var(--mono);font-size:20px;color:var(--fg);font-weight:600}
+.proof span{font-size:12.5px;color:var(--muted)}
+
+.board{border:1px solid var(--line-strong);border-radius:12px;background:var(--panel);overflow:hidden}
+.board .hd{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--line);font-size:12.5px;color:var(--muted);gap:10px;flex-wrap:wrap}
+.live{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11.5px;color:var(--good)}
+.live i{width:7px;height:7px;border-radius:50%;background:var(--good);display:inline-block}
+@media (prefers-reduced-motion:no-preference){.live i{animation:pulse 2s infinite}}
+@keyframes pulse{50%{opacity:.35}}
+.chart{padding:16px 16px 6px}
+.chart .top{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.chart .nm{font-size:13px;color:var(--muted)}
+.chart .px{font-family:var(--mono);font-size:30px;font-weight:600;color:var(--cream)}
+.chart .ch{font-family:var(--mono);font-size:13px}
+.up{color:var(--good)}.dn{color:var(--crit)}
+.chart svg{width:100%;height:150px;display:block;margin-top:6px}
+.rows{border-top:1px solid var(--line)}
+.rows button{all:unset;box-sizing:border-box;display:grid;grid-template-columns:1.2fr .9fr .8fr .9fr;gap:8px;width:100%;padding:9px 16px;border-bottom:1px solid var(--line);font-size:13px;cursor:pointer;font-variant-numeric:tabular-nums}
+.rows button:last-child{border-bottom:0}
+.rows button:hover{background:var(--raise)}
+.rows button[aria-pressed="true"]{background:var(--raise);box-shadow:inset 2px 0 0 var(--cream)}
+.rows .s{font-family:var(--mono);color:var(--fg)}
+.rows .v{font-family:var(--mono);text-align:right}
+.rows .c{font-family:var(--mono);text-align:right}
+.rows .f{font-family:var(--mono);text-align:right;color:var(--muted)}
+.rows .h{cursor:default;color:var(--faint);font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+.rows .h:hover{background:transparent}
+.board .ft{padding:8px 16px;font-size:11.5px;color:var(--faint);border-top:1px solid var(--line)}
+
+/* sections */
+section.blk{padding-block:56px;border-top:1px solid var(--line)}
+.sh{display:flex;justify-content:space-between;align-items:end;gap:24px;flex-wrap:wrap;margin-bottom:26px}
+h2{font-family:var(--display);font-weight:600;font-size:clamp(26px,3.4vw,36px);line-height:1.12;letter-spacing:-.02em;margin:8px 0 0;text-wrap:balance;max-width:24ch}
+.sh p{color:var(--muted);max-width:46ch;margin:0}
+h3{font-size:16px;font-weight:600;margin:0}
+
+/* audiences */
+.aud{display:grid;grid-template-columns:260px minmax(0,1fr);gap:0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--panel)}
+@media (max-width:820px){.aud{grid-template-columns:minmax(0,1fr)}}
+.aud [role=tablist]{display:flex;flex-direction:column;border-right:1px solid var(--line);padding:8px}
+@media (max-width:820px){.aud [role=tablist]{flex-direction:row;flex-wrap:wrap;border-right:0;border-bottom:1px solid var(--line);gap:4px}}
+.aud [role=tab]{all:unset;box-sizing:border-box;padding:12px 14px;border-radius:8px;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.aud [role=tab] b{font-size:14.5px;font-weight:600;color:var(--muted)}
+.aud [role=tab] span{font-size:12px;color:var(--faint)}
+.aud [role=tab]:hover b{color:var(--fg)}
+.aud [role=tab][aria-selected=true]{background:var(--raise)}
+.aud [role=tab][aria-selected=true] b{color:var(--fg)}
+.aud [role=tab]:focus-visible{outline:2px solid var(--blue)}
+.pane{padding:26px 28px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:22px 30px}
+@media (max-width:640px){.pane{grid-template-columns:minmax(0,1fr);padding:20px}}
+.pane .q{grid-column:1/-1;font-family:var(--display);font-size:22px;line-height:1.3;letter-spacing:-.01em;margin:0;text-wrap:balance}
+.pane .q span{color:var(--cream)}
+.pane h4{font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);font-weight:500;margin:0 0 8px}
+.pane ul{margin:0;padding-left:18px}
+.pane li{margin:4px 0;font-size:14.5px}
+.pane .fit{grid-column:1/-1;display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding-top:16px;border-top:1px solid var(--line);font-size:13.5px;color:var(--muted)}
+.tag{font-family:var(--mono);font-size:11.5px;border:1px solid var(--line-strong);border-radius:999px;padding:2px 9px;color:var(--fg);white-space:nowrap}
+
+/* datasets */
+.ds{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+@media (max-width:980px){.ds{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:520px){.ds{grid-template-columns:minmax(0,1fr)}}
+.d{border:1px solid var(--line);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:8px;background:var(--bg)}
+.d .src{font-family:var(--mono);font-size:11px;color:var(--faint);letter-spacing:.04em;text-transform:uppercase}
+.d p{margin:0;font-size:13.5px;color:var(--muted)}
+.d .meta{margin-top:auto;display:flex;gap:6px;flex-wrap:wrap;padding-top:6px}
+.d.feat{background:var(--panel);border-color:var(--line-strong)}
+.d.feat h3{color:var(--cream)}
+
+/* channels */
+.ch-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--line);border-radius:12px;overflow:hidden}
+@media (max-width:900px){.ch-strip{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:520px){.ch-strip{grid-template-columns:minmax(0,1fr)}}
+.chn{padding:18px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:6px}
+.chn .k{font-family:var(--mono);font-size:12px;color:var(--cream)}
+.chn p{margin:0;font-size:13.5px;color:var(--muted)}
+.chn .when{font-size:11.5px;color:var(--faint);margin-top:auto}
+
+/* plans */
+.plans{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+@media (max-width:980px){.plans{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:560px){.plans{grid-template-columns:minmax(0,1fr)}}
+.plan{border:1px solid var(--line);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:12px;background:var(--bg)}
+.plan.rec{border-color:var(--cream);background:var(--panel)}
+.plan .who{font-size:13px;color:var(--muted);min-height:2.8em}
+.plan .price{font-family:var(--mono);font-size:24px;font-weight:600}
+.plan .price small{font-family:var(--sans);font-size:12.5px;font-weight:400;color:var(--muted)}
+.plan ul{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:7px;font-size:13.5px}
+.plan li{padding-left:20px;position:relative}
+.plan li::before{content:"";position:absolute;left:2px;top:.55em;width:8px;height:5px;border-left:1.5px solid var(--good);border-bottom:1.5px solid var(--good);transform:rotate(-45deg)}
+.plan .btn{margin-top:auto;justify-content:center}
+.badge{align-self:flex-start;font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--blue-ink);background:var(--cream);border-radius:4px;padding:2px 7px}
+.plan-notes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}
+@media (max-width:700px){.plan-notes{grid-template-columns:minmax(0,1fr)}}
+.pn{border:1px dashed var(--line-strong);border-radius:12px;padding:16px 18px;display:flex;gap:16px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}
+.pn div{flex:1;min-width:200px}
+.pn p{margin:4px 0 0;font-size:13.5px;color:var(--muted)}
+
+/* compare table */
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:10px;margin-top:22px}
+table{border-collapse:collapse;width:100%;font-size:13.5px;font-variant-numeric:tabular-nums}
+th,td{padding:9px 14px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{font-weight:500;color:var(--muted);background:var(--panel);font-size:12.5px}
+td:first-child{color:var(--muted);white-space:normal;min-width:180px}
+tr:last-child td{border-bottom:0}
+.y{color:var(--good)} .n{color:var(--faint)}
+
+/* trust */
+.trust{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:26px 30px}
+@media (max-width:860px){.trust{grid-template-columns:minmax(0,1fr)}}
+.t{display:flex;flex-direction:column;gap:6px;padding-top:14px;border-top:1px solid var(--line-strong)}
+.t p{margin:0;font-size:14px;color:var(--muted)}
+.flow{margin-top:30px;border:1px solid var(--line);border-radius:12px;padding:18px;background:var(--panel);overflow-x:auto}
+.flow svg{display:block;min-width:640px;width:100%;height:auto}
+
+/* faq */
+.faq{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 30px}
+@media (max-width:820px){.faq{grid-template-columns:minmax(0,1fr)}}
+details.qa{border-bottom:1px solid var(--line);padding:14px 0}
+details.qa summary{cursor:pointer;font-weight:500;list-style:none;display:flex;justify-content:space-between;gap:12px}
+details.qa summary::-webkit-details-marker{display:none}
+details.qa summary::after{content:"+";font-family:var(--mono);color:var(--muted)}
+details.qa[open] summary::after{content:"–"}
+details.qa p{margin:10px 0 0;color:var(--muted);font-size:14px}
+
+/* access */
+.access{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:40px;align-items:start}
+@media (max-width:860px){.access{grid-template-columns:minmax(0,1fr)}}
+form{border:1px solid var(--line-strong);border-radius:12px;padding:22px;background:var(--panel);display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}
+@media (max-width:560px){form{grid-template-columns:minmax(0,1fr)}}
+form .full{grid-column:1/-1}
+label{display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:var(--muted)}
+input,select,textarea{background:var(--bg);border:1px solid var(--line-strong);color:var(--fg);border-radius:7px;padding:9px 11px;font:inherit;font-size:14px;width:100%}
+textarea{min-height:76px;resize:vertical}
+fieldset{border:0;padding:0;margin:0;display:flex;flex-wrap:wrap;gap:8px}
+legend{font-size:12.5px;color:var(--muted);margin-bottom:6px;width:100%}
+.chk{flex-direction:row;align-items:center;gap:7px;border:1px solid var(--line-strong);border-radius:999px;padding:5px 12px;font-size:13px;color:var(--fg);cursor:pointer}
+.chk input{width:auto;accent-color:var(--blue)}
+.ok{grid-column:1/-1;border:1px solid #3c5a47;background:#1a241e;border-radius:8px;padding:12px 14px;font-size:14px}
+.steps{list-style:none;padding:0;margin:20px 0 0;display:flex;flex-direction:column;gap:14px}
+.steps li{display:grid;grid-template-columns:28px minmax(0,1fr);gap:12px;font-size:14.5px}
+.steps li span{font-family:var(--mono);font-size:12px;color:var(--cream);border:1px solid var(--line-strong);border-radius:50%;width:26px;height:26px;display:grid;place-items:center}
+.steps li p{margin:2px 0 0;color:var(--muted);font-size:13.5px}
+
+footer{border-top:1px solid var(--line);padding-block:28px 40px;color:var(--faint);font-size:12.5px}
+footer .wrap{display:flex;gap:20px;justify-content:space-between;flex-wrap:wrap}
+footer a{color:var(--muted)}
+</style>
+
+<header class="nav">
+  <div class="wrap">
+    <a class="logo" href="#top" aria-label="Compute Signal Data home">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="4" fill="none" stroke="#e8e2b9" stroke-width="1.6"/><path d="M5 15.5l3.5-4 3 2.5L15 8l4 4" fill="none" stroke="#e8e2b9" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Compute Signal <small>Data</small>
+    </a>
+    <nav class="links" aria-label="Page sections">
+      <a href="#audiences">Who it's for</a><a href="#datasets">Datasets</a><a href="#delivery">Delivery</a><a href="#plans">Plans</a><a href="#trust">Methodology</a><a href="#licensing">Licensing</a>
+    </nav>
+    <span class="sp"></span>
+    <a class="btn sec sm" href="https://claude.ai/artifact/Kjnunt2cLxqVKEJ2A5Qm5U" target="_blank" rel="noopener">API docs</a>
+    <a class="btn pri sm" href="#access">Request access</a>
+  </div>
+</header>
+
+<main id="top">
+<div class="wrap hero">
+  <div>
+    <div class="kicker">Compute Signal × Compute Desk Exchange</div>
+    <h1>The reference price for <em>GPU compute</em>, and the market behind it.</h1>
+    <p class="lead">Benchmark indexes built from real physical deals, plus real-time order book, trades and settlement prices from Compute Desk Exchange (CDX). One licence, one entitlement, every channel you already use.</p>
+    <div class="cta">
+      <a class="btn pri" href="#access">Request access</a>
+      <a class="btn sec" href="#plans">See plans</a>
+    </div>
+    <div class="proof">
+      <div><b>4</b><span>chips indexed: H100, H200, B200, B300</span></div>
+      <div><b>12</b><span>listed months per futures curve</span></div>
+      <div><b>T+0</b><span>daily fix, 16:00 New York</span></div>
+    </div>
+  </div>
+
+  <div class="board" aria-label="Example index board">
+    <div class="hd"><span>Compute Signal · 1-year rental, US · $/GPU-hr</span><span class="live"><i></i>Example data</span></div>
+    <div class="chart">
+      <div class="top"><span class="nm" id="bName">H100-US-1Y</span><span class="px" id="bPx">2.92</span><span class="ch" id="bCh"></span></div>
+      <svg id="spark" viewBox="0 0 400 150" preserveAspectRatio="none" role="img" aria-label="90-day index history"></svg>
+    </div>
+    <div class="rows" id="rows">
+      <button class="h" tabindex="-1" aria-hidden="true"><span>Index</span><span class="v">Fix</span><span class="c">90d</span><span class="f">Front future</span></button>
+    </div>
+    <div class="ft">Illustrative values for this page only. Not published index levels.</div>
+  </div>
+</div>
+
+<section class="blk" id="audiences">
+  <div class="wrap">
+    <div class="sh"><div><div class="kicker">Who it's for</div><h2>One dataset, six very different jobs</h2></div><p>Pick the job closest to yours to see what you'd use, how you'd receive it and which plan fits.</p></div>
+    <div class="aud">
+      <div role="tablist" aria-label="Audiences" id="audTabs"></div>
+      <div class="pane" role="tabpanel" id="audPane" tabindex="0"></div>
+    </div>
+  </div>
+</section>
+
+<section class="blk" id="datasets">
+  <div class="wrap">
+    <div class="sh"><div><div class="kicker">Datasets</div><h2>Everything from the benchmark to the last tick</h2></div><p>Every dataset is available real-time, delayed, end of day or as history, depending on your plan.</p></div>
+    <div class="ds">
+      <div class="d feat"><span class="src">Compute Signal</span><h3>Benchmark indexes</h3><p>Daily fix per chip, region and tenor, with contributing prints, dispersion and methodology version.</p><div class="meta"><span class="tag">Daily fix</span><span class="tag">Since inception</span></div></div>
+      <div class="d"><span class="src">CDX</span><h3>Top of book</h3><p>Best bid and offer with size, last trade and daily statistics for every listed contract.</p><div class="meta"><span class="tag">Every change</span><span class="tag">7 yrs</span></div></div>
+      <div class="d"><span class="src">CDX</span><h3>Full depth</h3><p>Every price level as a sequenced snapshot plus deltas. Tick files for backtests.</p><div class="meta"><span class="tag">Every change</span><span class="tag">7 yrs</span></div></div>
+      <div class="d"><span class="src">CDX</span><h3>Trades</h3><p>Price, size, aggressor side and venue: order book, Block RFQ or Convert to Physical.</p><div class="meta"><span class="tag">Every trade</span><span class="tag">7 yrs</span></div></div>
+      <div class="d feat"><span class="src">CDX</span><h3>Settlement prices</h3><p>Daily settlement and final settlement against the monthly index average, with the method flagged.</p><div class="meta"><span class="tag">16:15 NY</span><span class="tag">Permanent</span></div></div>
+      <div class="d"><span class="src">CDX</span><h3>Forward curve</h3><p>Twelve months per chip, built from settlements and the index. Point-in-time history.</p><div class="meta"><span class="tag">Every 15 min</span><span class="tag">Permanent</span></div></div>
+      <div class="d"><span class="src">CDX</span><h3>Reference data</h3><p>Contract definitions, trading calendar and the basis tables used to normalise physical quotes.</p><div class="meta"><span class="tag">On change</span><span class="tag">Versioned</span></div></div>
+      <div class="d"><span class="src">Physical market</span><h3>Deal aggregates</h3><p>Weekly RFQ volume, matched basis, delivered GPU-hours and acceptance rates. Anonymised.</p><div class="meta"><span class="tag">Weekly</span><span class="tag">≥3 parties per cell</span></div></div>
+    </div>
+  </div>
+</section>
+
+<section class="blk" id="delivery">
+  <div class="wrap">
+    <div class="sh"><div><div class="kicker">Delivery</div><h2>Receive it where you already work</h2></div><p>Market data runs on the same APIs as trading, so one integration covers both. Files and vendors cover everyone else.</p></div>
+    <div class="ch-strip">
+      <div class="chn"><span class="k">WebSocket</span><h3>Streaming</h3><p>Sequenced book, trades, index, curve and settlement channels with gap recovery.</p><span class="when">For algos, market makers, dashboards</span></div>
+      <div class="chn"><span class="k">REST</span><h3>Snapshots and history</h3><p>Latest values and paginated history, up to a year per call, point-in-time on request.</p><span class="when">For apps, risk systems, research</span></div>
+      <div class="chn"><span class="k">SFTP · S3</span><h3>Daily files</h3><p>Parquet and CSV by 18:00 New York: ticks, trades, settlements, index, curve, reference data.</p><span class="when">For quants, lenders, risk teams</span></div>
+      <div class="chn"><span class="k">Vendors</span><h3>On your terminal</h3><p>Through licensed redistributors, with the same entitlements carried across.</p><span class="when">Bloomberg, LSEG and others (planned)</span></div>
+    </div>
+    <p style="color:var(--muted);font-size:13.5px;margin:14px 0 0">Also available: a signed benchmark feed for venues that settle on the index, and cloud data shares (Snowflake, Databricks) later. <a href="https://claude.ai/artifact/Kjnunt2cLxqVKEJ2A5Qm5U" target="_blank" rel="noopener">Read the API docs →</a></p>
+  </div>
+</section>
+
+<section class="blk" id="plans">
+  <div class="wrap">
+    <div class="sh"><div><div class="kicker">Plans</div><h2>Start free. Pay when data runs your business.</h2></div><p>Real-time data is free for every trading account in our launch year. Prices below are launch proposals.</p></div>
+    <div class="plans">
+      <div class="plan"><h3>Public</h3><div class="who">Anyone tracking the price of compute</div><div class="price">$0</div><ul><li>Index values, next business day</li><li>End-of-day settlements</li><li>10-min delayed top of book</li><li>Free REST account: 90 days of history</li></ul><a class="btn sec" href="#access" data-plan="Public">Create free account</a></div>
+      <div class="plan rec"><span class="badge">Launch offer</span><h3>Trading</h3><div class="who">Every firm with a CDX trading account</div><div class="price">$0 <small>in year one, then ~$100 per user / month</small></div><ul><li>Real-time book, trades, curve and indexes</li><li>Display and your own algos</li><li>WebSocket and REST</li><li>1 year of history</li></ul><a class="btn pri" href="#access" data-plan="Trading">Get real-time data</a></div>
+      <div class="plan"><h3>Professional</h3><div class="who">Funds, lenders, risk and research teams</div><div class="price">From $2k <small>per firm / month</small></div><ul><li>Everything in Trading</li><li>Non-display use: models, risk, valuation</li><li>Full history and daily files</li><li>Point-in-time index history</li></ul><a class="btn sec" href="#access" data-plan="Professional">Talk to us</a></div>
+      <div class="plan"><h3>Benchmark licence</h3><div class="who">Venues, lenders and issuers that settle or value against the index</div><div class="price">Annual <small>+ fee on referencing volume</small></div><ul><li>Official signed index feed</li><li>Corrections and methodology notices</li><li>Right to reference the index in products and loans</li><li>Usage reporting built in</li></ul><a class="btn sec" href="#access" data-plan="Benchmark licence">Talk to us</a></div>
+    </div>
+    <div class="plan-notes">
+      <div class="pn"><div><h3>Market makers</h3><p>Professional data at no charge while you meet quoting obligations under the CDX market maker programme.</p></div><a class="btn sec sm" href="#access" data-plan="Market maker">Apply</a></div>
+      <div class="pn"><div><h3>Redistributors</h3><p>Pass data to your users under a redistribution licence: a base fee plus per-user fees, reported monthly.</p></div><a class="btn sec sm" href="#access" data-plan="Redistribution">Partner with us</a></div>
+    </div>
+    <div class="tw">
+      <table>
+        <thead><tr><th>Compare</th><th>Public</th><th>Trading</th><th>Professional</th><th>Benchmark</th></tr></thead>
+        <tbody>
+          <tr><td>Index values</td><td>Next day</td><td>At the fix</td><td>At the fix</td><td>Signed feed</td></tr>
+          <tr><td>Order book and trades</td><td>10-min delay</td><td>Real-time</td><td>Real-time</td><td class="n">–</td></tr>
+          <tr><td>History</td><td>90 days</td><td>1 year</td><td>Full</td><td>Full index</td></tr>
+          <tr><td>Bulk files</td><td class="n">–</td><td class="n">–</td><td class="y">Yes</td><td class="y">Yes</td></tr>
+          <tr><td>Non-display use</td><td class="n">–</td><td>Own algos</td><td class="y">Yes</td><td class="y">Yes</td></tr>
+          <tr><td>Settle or value products on the index</td><td class="n">–</td><td class="n">–</td><td class="n">–</td><td class="y">Yes</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="blk" id="trust">
+  <div class="wrap">
+    <div class="sh"><div><div class="kicker">Methodology and governance</div><h2>A benchmark you can settle a contract on</h2></div><p>CDX futures settle on Compute Signal, so the index is held to the standard of a regulated benchmark.</p></div>
+    <div class="trust">
+      <div class="t"><h3>Built from physical deals</h3><p>The index uses physical deal prints and contributed quotes only. CDX futures prices never feed it, so trading the futures can't move their own settlement.</p></div>
+      <div class="t"><h3>Published methodology</h3><p>Every rule is public and versioned. Changes go through a 30-day consultation and are announced on the benchmark feed before they apply.</p></div>
+      <div class="t"><h3>Independent oversight</h3><p>An oversight committee with outside members, separate from the exchange's commercial team, aligned with IOSCO benchmark principles.</p></div>
+      <div class="t"><h3>Input controls</h3><p>Outlier filters and a minimum number of prints per fix. When prints are thin, a documented fallback applies and the value is flagged.</p></div>
+      <div class="t"><h3>Corrections in the open</h3><p>Values can be corrected until 12:00 New York the next business day. Corrections are broadcast, and history keeps both versions.</p></div>
+      <div class="t"><h3>Confidential by design</h3><p>Physical aggregates publish only cells with 3 or more counterparties, where none is more than half. Single deals are never shown.</p></div>
+    </div>
+    <div class="flow" aria-label="How data flows from deals to products">
+      <svg viewBox="0 0 900 150" role="img" aria-labelledby="flowT"><title id="flowT">Physical deals feed the Compute Signal index, which settles CDX futures; the futures produce market data. Futures prices do not feed back into the index.</title>
+        <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#9a9890"/></marker></defs>
+        <g font-family="Inter, system-ui, sans-serif" font-size="13" fill="#ecebe6">
+          <rect x="10" y="40" width="170" height="64" rx="8" fill="#1f1e1c" stroke="#3a3936"/><text x="95" y="68" text-anchor="middle" font-weight="600">Physical deals</text><text x="95" y="88" text-anchor="middle" fill="#9a9890" font-size="11.5">RFQ, EFP, contributed quotes</text>
+          <rect x="250" y="40" width="180" height="64" rx="8" fill="#26241d" stroke="#e8e2b9"/><text x="340" y="68" text-anchor="middle" font-weight="600" fill="#e8e2b9">Compute Signal index</text><text x="340" y="88" text-anchor="middle" fill="#9a9890" font-size="11.5">Daily fix, governed</text>
+          <rect x="500" y="40" width="170" height="64" rx="8" fill="#1f1e1c" stroke="#3a3936"/><text x="585" y="68" text-anchor="middle" font-weight="600">CDX futures</text><text x="585" y="88" text-anchor="middle" fill="#9a9890" font-size="11.5">Settle on monthly average</text>
+          <rect x="740" y="40" width="150" height="64" rx="8" fill="#1f1e1c" stroke="#3a3936"/><text x="815" y="68" text-anchor="middle" font-weight="600">Market data</text><text x="815" y="88" text-anchor="middle" fill="#9a9890" font-size="11.5">Book, trades, curve</text>
+          <line x1="180" y1="72" x2="246" y2="72" stroke="#9a9890" stroke-width="1.5" marker-end="url(#ar)"/>
+          <line x1="430" y1="72" x2="496" y2="72" stroke="#9a9890" stroke-width="1.5" marker-end="url(#ar)"/>
+          <line x1="670" y1="72" x2="736" y2="72" stroke="#9a9890" stroke-width="1.5" marker-end="url(#ar)"/>
+          <path d="M585 104 C585 140, 340 140, 340 108" fill="none" stroke="#e2806f" stroke-width="1.5" stroke-dasharray="5 5"/>
+          <line x1="452" y1="126" x2="472" y2="146" stroke="#e2806f" stroke-width="2"/><line x1="472" y1="126" x2="452" y2="146" stroke="#e2806f" stroke-width="2"/>
+          <text x="462" y="22" text-anchor="middle" fill="#9a9890" font-size="11.5">Futures prices never feed the index (no circularity)</text>
+        </g>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<section class="blk" id="licensing">
+  <div class="wrap">
+    <div class="sh"><div><div class="kicker">Licensing</div><h2>Plain answers on how you can use the data</h2></div><p>One master data agreement covers every plan, with a short schedule for each use.</p></div>
+    <div class="faq">
+      <div>
+        <details class="qa"><summary>What's the difference between display and non-display?</summary><p>Display means a person sees the data on a screen, and is counted per user. Non-display means a machine uses it: an algo, a risk or margin model, a valuation. That's licensed per firm.</p></details>
+        <details class="qa"><summary>When do I need a benchmark licence?</summary><p>When you settle, price or value a financial product or loan against a Compute Signal index. That applies even if you get the numbers from a free plan.</p></details>
+        <details class="qa"><summary>Can I build my own models and indicators?</summary><p>Yes, for internal use. A derived product that could replace the index or the feed, such as another published index or curve, needs a separate licence.</p></details>
+        <details class="qa"><summary>Can I show the data to my clients?</summary><p>Only through a redistribution licence, or as delayed data with attribution. Public uses cite "Source: Compute Signal" or "Source: Compute Desk Exchange" with the as-of time.</p></details>
+      </div>
+      <div>
+        <details class="qa"><summary>Is delayed data free to use?</summary><p>Yes, for any use except benchmark use and redistribution.</p></details>
+        <details class="qa"><summary>How is usage checked?</summary><p>Redistributors report users monthly. We can audit usage once a year, and under-reported usage is billed at list price.</p></details>
+        <details class="qa"><summary>What happens when an index value is corrected?</summary><p>You get a correction message on the stream and the benchmark feed. History keeps the first published value and the correction, so a backtest sees what traders saw on the day.</p></details>
+        <details class="qa"><summary>Does physical deal data reveal who traded?</summary><p>No. Only aggregates are published, and only where at least 3 counterparties contribute and none is more than half of the cell.</p></details>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="blk" id="access">
+  <div class="wrap access">
+    <div>
+      <div class="kicker">Get started</div>
+      <h2>Request data access</h2>
+      <p style="color:var(--muted);margin:12px 0 0">Tell us what you're building. We'll match you to a plan and set up entitlements on your account.</p>
+      <ol class="steps">
+        <li><span>1</span><div><b>Pick your use</b><p>Display, your own algos, models and valuation, or settling products on the index.</p></div></li>
+        <li><span>2</span><div><b>Sign the data agreement</b><p>One master agreement, with a schedule for your plan.</p></div></li>
+        <li><span>3</span><div><b>Connect</b><p>Entitlements appear on your API keys right away. Sandbox data is always free.</p></div></li>
+      </ol>
+    </div>
+    <form id="req" novalidate>
+      <label>Name<input id="f-name" name="name" autocomplete="name" required></label>
+      <label>Work email<input id="f-email" name="email" type="email" autocomplete="email" required></label>
+      <label>Company<input id="f-co" name="company" autocomplete="organization" required></label>
+      <label>You are
+        <select id="f-role" name="role">
+          <option>Trading firm or market maker</option><option>AI lab or enterprise buyer</option><option>GPU provider or neocloud</option><option>Lender or investor</option><option>Exchange or product issuer</option><option>Data vendor</option><option>Research or media</option>
+        </select>
+      </label>
+      <fieldset class="full" id="f-plan"><legend>Plan you're interested in</legend>
+        <label class="chk"><input type="radio" name="plan" value="Public">Public</label>
+        <label class="chk"><input type="radio" name="plan" value="Trading" checked>Trading</label>
+        <label class="chk"><input type="radio" name="plan" value="Professional">Professional</label>
+        <label class="chk"><input type="radio" name="plan" value="Benchmark licence">Benchmark licence</label>
+        <label class="chk"><input type="radio" name="plan" value="Market maker">Market maker</label>
+        <label class="chk"><input type="radio" name="plan" value="Redistribution">Redistribution</label>
+      </fieldset>
+      <label class="full">What will you use the data for?<textarea id="f-use" name="use" placeholder="e.g. hedge 64 H100s and value our GPU loan book against the index"></textarea></label>
+      <div class="full" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><button class="btn pri" type="submit">Request access</button><span style="font-size:12.5px;color:var(--faint)">Prototype page: requests are not sent anywhere.</span></div>
+      <div class="ok full" id="ok" hidden></div>
+    </form>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Compute Signal is a Compute Desk product. Compute Desk Exchange (CDX) is a proposed venue. All values, plans and prices on this page are illustrative.</span>
+    <span><a href="https://claude.ai/artifact/Kjnunt2cLxqVKEJ2A5Qm5U" target="_blank" rel="noopener">Developer docs</a> · <a href="https://claude.ai/artifact/4EdrS68fZfczcJ97R3MGvd" target="_blank" rel="noopener">Data access spec</a></span>
+  </div>
+</footer>
+
+<script>
+(function(){
+  // ---- Example index board (illustrative series, deterministic) ----
+  var IDX = [
+    {id:'H100-US-1Y', fut:'H1UF Z26', end:2.92, start:3.014, futPx:2.90, seed:3},
+    {id:'H200-US-1Y', fut:'H2UF Z26', end:3.51, start:3.428, futPx:3.50, seed:7},
+    {id:'B200-US-1Y', fut:'B2UF Z26', end:5.64, start:5.045, futPx:5.66, seed:11},
+    {id:'B300-US-1Y', fut:'B3UF Z26', end:7.52, start:5.333, futPx:7.58, seed:17}
+  ];
+  function series(o){
+    var n=90, out=[], s=o.seed;
+    function rnd(){ s=(s*9301+49297)%233280; return s/233280; }
+    for(var i=0;i<n;i++){
+      var t=i/(n-1), base=o.start+(o.end-o.start)*t;
+      var noise=(rnd()-.5)*0.035*o.end*Math.sin(Math.PI*t+0.2);
+      out.push(i===n-1?o.end:+(base+noise).toFixed(3));
+    }
+    return out;
+  }
+  IDX.forEach(function(o){ o.s=series(o); o.chg=(o.end/o.start-1)*100; });
+  var rows=document.getElementById('rows'), svg=document.getElementById('spark');
+  var sel=0;
+  IDX.forEach(function(o,i){
+    var b=document.createElement('button');
+    b.type='button';
+    b.innerHTML='<span class="s">'+o.id+'</span><span class="v">'+o.end.toFixed(2)+'</span><span class="c '+(o.chg>=0?'up':'dn')+'">'+(o.chg>=0?'+':'')+o.chg.toFixed(1)+'%</span><span class="f">'+o.fut+' '+o.futPx.toFixed(2)+'</span>';
+    b.addEventListener('click',function(){ sel=i; draw(); });
+    rows.appendChild(b);
+  });
+  function draw(){
+    var o=IDX[sel];
+    Array.prototype.forEach.call(rows.querySelectorAll('button:not(.h)'),function(b,i){ b.setAttribute('aria-pressed', i===sel?'true':'false'); });
+    document.getElementById('bName').textContent=o.id;
+    document.getElementById('bPx').textContent=o.end.toFixed(2);
+    var ch=document.getElementById('bCh'); ch.textContent=(o.chg>=0?'+':'')+o.chg.toFixed(1)+'% over 90 days'; ch.className='ch '+(o.chg>=0?'up':'dn');
+    var W=400,H=150,pt=14,pb=16,min=Math.min.apply(null,o.s),max=Math.max.apply(null,o.s),pad=(max-min)*0.12||0.05;
+    min-=pad; max+=pad;
+    function x(i){ return i/(o.s.length-1)*(W-44); }
+    function y(v){ return pt+(1-(v-min)/(max-min))*(H-pt-pb); }
+    var d=o.s.map(function(v,i){ return (i?'L':'M')+x(i).toFixed(1)+' '+y(v).toFixed(1); }).join(' ');
+    var area=d+' L'+x(o.s.length-1).toFixed(1)+' '+(H-pb)+' L0 '+(H-pb)+' Z';
+    var grid='', ticks=[min+pad, (min+max)/2, max-pad];
+    ticks.forEach(function(t){ grid+='<line x1="0" x2="'+(W-44)+'" y1="'+y(t).toFixed(1)+'" y2="'+y(t).toFixed(1)+'" stroke="#2d2c2a" stroke-width="1"/><text x="'+(W-40)+'" y="'+(y(t)+4).toFixed(1)+'" fill="#6f6d67" font-size="10" font-family="JetBrains Mono, monospace">'+t.toFixed(2)+'</text>'; });
+    var lx=x(o.s.length-1), ly=y(o.end);
+    svg.innerHTML='<defs><linearGradient id="g" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#e8e2b9" stop-opacity=".22"/><stop offset="1" stop-color="#e8e2b9" stop-opacity="0"/></linearGradient></defs>'+grid+
+      '<path d="'+area+'" fill="url(#g)"/><path d="'+d+'" fill="none" stroke="#e8e2b9" stroke-width="1.8" vector-effect="non-scaling-stroke"/>'+
+      '<circle cx="'+lx.toFixed(1)+'" cy="'+ly.toFixed(1)+'" r="3.5" fill="#e8e2b9"/>'+
+      '<text x="0" y="'+(H-2)+'" fill="#6f6d67" font-size="10" font-family="JetBrains Mono, monospace">90 days ago</text><text x="'+(W-44)+'" y="'+(H-2)+'" text-anchor="end" fill="#6f6d67" font-size="10" font-family="JetBrains Mono, monospace">Today</text>';
+  }
+  draw();
+
+  // ---- Audience switcher ----
+  var AUD=[
+    {k:'Trading firms', s:'Market makers, prop desks, algos', q:'You need the <span>whole book, fast</span>, and the index it settles to.',
+      use:['Full depth and trades on WebSocket, sequenced with gap recovery','Index fix and settlement prices to mark positions','Tick files and point-in-time curve history for backtests'],
+      get:['Streaming market data and order entry on one connection','Reference data that drives your symbol mapping','Market makers: Professional data at no charge'], plan:'Trading or Market maker', ch:['WebSocket','REST','Daily files']},
+    {k:'Hedgers', s:'AI labs, enterprises, GPU providers', q:'You need to know <span>what compute costs</span> before you lock it in.',
+      use:['Forward curve for the next 12 months per chip','Index history to set budgets and hedge ratios','Physical aggregates: what basis others are paying'],
+      get:['A clear screen in the platform, no integration needed','REST pulls into treasury and FP&A tools','Delivery and escrow records alongside the prices'], plan:'Trading (free in year one)', ch:['UI','REST']},
+    {k:'Lenders and investors', s:'GPU-backed lenders, funds, analysts', q:'You need a <span>defensible mark</span> for GPU collateral and contracted revenue.',
+      use:['Daily index and curve to value collateral and receivables','Full history with corrections for credit models','Delivered GPU-hours and acceptance rates as performance signals'],
+      get:['Daily files that load straight into risk systems','Non-display rights for models and valuation','A benchmark licence if loan terms reference the index'], plan:'Professional, plus Benchmark licence if loans reference the index', ch:['Daily files','REST']},
+    {k:'Venues and issuers', s:'Exchanges, structured product issuers', q:'You need an index you can <span>settle a contract on</span>.',
+      use:['Official signed daily fix with methodology version','Correction and stale-value messages','Methodology notices with 30 days’ warning'],
+      get:['A benchmark feed with an SFTP fallback','Governance documents for your regulator','Usage reporting built into the licence'], plan:'Benchmark licence', ch:['Benchmark feed','SFTP']},
+    {k:'Data vendors', s:'Terminals and data platforms', q:'You need a <span>clean feed and clear rights</span> to pass it on.',
+      use:['Everything: indexes, book, trades, settlements, curve','Entitlement tags on every message','Monthly user reporting'],
+      get:['Redistribution rights under one agreement','Real-time or delayed packages for your users','Co-marketing at launch'], plan:'Redistribution', ch:['WebSocket','Daily files']},
+    {k:'Research and media', s:'Analysts, journalists, academics', q:'You need to <span>cite the price of compute</span> with confidence.',
+      use:['Index values the next business day','Charts and methodology you can link to','Delayed top of book and settlements'],
+      get:['Free public access, no contract','Attribution rules that are easy to follow','Academic access to history on request'], plan:'Public', ch:['Website','REST']}
+  ];
+  var tabs=document.getElementById('audTabs'), pane=document.getElementById('audPane'), cur=0;
+  AUD.forEach(function(a,i){
+    var t=document.createElement('button'); t.type='button'; t.setAttribute('role','tab'); t.id='aud-'+i;
+    t.innerHTML='<b>'+a.k+'</b><span>'+a.s+'</span>';
+    t.addEventListener('click',function(){ show(i); });
+    t.addEventListener('keydown',function(e){ var d=(e.key==='ArrowDown'||e.key==='ArrowRight')?1:(e.key==='ArrowUp'||e.key==='ArrowLeft')?-1:0; if(d){ e.preventDefault(); show((cur+d+AUD.length)%AUD.length); tabs.children[cur].focus(); } });
+    tabs.appendChild(t);
+  });
+  function li(xs){ return '<ul>'+xs.map(function(x){ return '<li>'+x+'</li>'; }).join('')+'</ul>'; }
+  function show(i){
+    cur=i; var a=AUD[i];
+    Array.prototype.forEach.call(tabs.children,function(t,j){ t.setAttribute('aria-selected', j===i?'true':'false'); t.tabIndex=j===i?0:-1; });
+    pane.setAttribute('aria-labelledby','aud-'+i);
+    pane.innerHTML='<p class="q">'+a.q+'</p><div><h4>What you’d use</h4>'+li(a.use)+'</div><div><h4>What you get</h4>'+li(a.get)+'</div>'+
+      '<div class="fit"><span>Best fit: <b style="color:var(--fg)">'+a.plan+'</b></span><span style="flex:1"></span>'+a.ch.map(function(c){ return '<span class="tag">'+c+'</span>'; }).join('')+'</div>';
+  }
+  show(0);
+
+  // ---- Plan buttons preselect the form ----
+  document.querySelectorAll('[data-plan]').forEach(function(b){
+    b.addEventListener('click',function(){
+      var v=b.getAttribute('data-plan');
+      var r=document.querySelector('#f-plan input[value="'+v+'"]'); if(r) r.checked=true;
+    });
+  });
+
+  // ---- Access form (prototype: nothing is sent) ----
+  var form=document.getElementById('req'), ok=document.getElementById('ok');
+  form.addEventListener('submit',function(e){
+    e.preventDefault();
+    var name=document.getElementById('f-name'), email=document.getElementById('f-email'), co=document.getElementById('f-co');
+    var missing=[name,email,co].filter(function(f){ return !f.value.trim(); });
+    if(missing.length || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.value.trim())){
+      ok.hidden=false; ok.style.borderColor='#5a3a33'; ok.style.background='#2a1d1a';
+      ok.textContent= missing.length ? 'Add your name, work email and company so we know who to contact.' : 'That email doesn’t look right. Check it and try again.';
+      (missing[0]||email).focus(); return;
+    }
+    var plan=(form.querySelector('input[name=plan]:checked')||{}).value||'Trading';
+    ok.hidden=false; ok.style.borderColor=''; ok.style.background='';
+    ok.textContent='Request ready for '+plan+' at '+co.value.trim()+'. In the live product this goes to the data team, who reply within one business day. This prototype doesn’t send it.';
+  });
+})();
+</script>

@@ -34,3 +34,8 @@ npm run build    # single-file build in dist/index.html (open directly in a brow
 - `src/Request.jsx`: request board, physical RFQ, spread and flex requests, delivery tracker
 - `src/Convert.jsx`: guided Convert to Physical (EFP)
 - `src/Integrate.jsx`, `src/Settings.jsx`: API keys and quickstarts; theme, alerts, preferences, reports
+
+## Docs
+
+- `docs/developer/index.html`: CDX developer docs (REST, WebSocket, FIX)
+- `docs/data/index.html`: Compute Signal market data products and tiers
