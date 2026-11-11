@@ -161,13 +161,15 @@ export default function App() {
   }
 
   // Award a quote. For an EFP both futures legs book at the same time as the physical contract.
-  const award = (reqId, quoteId) => {
+  // opts (from Convert to Physical): negotiated basis, prepayment terms, and a POC that already passed.
+  const award = (reqId, quoteId, opts = {}) => {
     const r = requests.find((x) => x.id === reqId)
     const q = r.quotes.find((x) => x.id === quoteId)
     const i0 = MONTHS.indexOf(r.start)
     const strip = MONTHS.slice(i0, i0 + r.term).map((m) => sym(r.sku, m))
     const fAvg = r.kind === 'EFP' ? strip.reduce((a, s) => a + marks[s], 0) / strip.length : SKUS[r.sku].index
-    const price = fAvg + q.norm
+    const basis = opts.basis ?? q.norm
+    const price = fAvg + basis
     const id = nextId('PC')
     let efp = null
     if (r.kind === 'EFP') {
@@ -195,7 +197,7 @@ export default function App() {
       if (q.mine) legs(q.mine, -1)
     }
     setRequests((rs) => rs.map((x) => (x.id === reqId ? { ...x, status: 'awarded', awardedTo: q.name, awardedId: q.id, contractId: id, price, efp } : x)))
-    setContracts((cs) => [{ id, sku: r.sku, gpus: r.gpus, months: r.term, start: r.start, price, buyer: r.buyer, provider: q.name, via: r.kind, stage: 0, failed: false, month: 0, uptime: 0, log: [r.kind === 'EFP' ? `EFP booked: ${r.gpus * r.term} contracts at strip avg $${fmt(fAvg)}; physical at +$${fmt(q.norm, 3)} basis` : `Contract signed with ${q.name} via blind RFQ`] }, ...cs])
+    setContracts((cs) => [{ id, sku: r.sku, gpus: r.gpus, months: r.term, start: r.start, price, buyer: r.buyer, provider: q.name, via: r.kind, stage: opts.poc ? 2 : 0, prepay: opts.prepay || 'Monthly in advance', failed: false, broken: false, month: 0, uptime: 0, log: r.kind === 'EFP' ? [`Conditional lease signed with ${q.name} at +$${fmt(basis, 3)} basis; ${opts.prepay || 'Monthly in advance'}`, ...(opts.poc ? [`POC passed: 1 node for ${opts.poc} days, Clear Verified`] : []), `EFP booked: ${r.gpus * r.term} contracts at strip avg $${fmt(fAvg)}`, ...(opts.poc ? ['Prepayment funded into Clear Escrow'] : [])] : [`Contract signed with ${q.name} via blind RFQ`] }, ...cs])
     return id
   }
 

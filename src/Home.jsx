@@ -3,15 +3,15 @@ import { SKUS, MONTHS, SIZE, IM_RATE, NEWS, sym, fmt, usd, usdK, skuOf } from '.
 import { candles, stats24 } from './market.js'
 import { Panel, Stat, Spark } from './ui.jsx'
 
-const STAGES = ['Signed', 'Escrow funded', 'Bond posted', 'Nodes handed over', 'Accepted', 'Live']
+const STAGES = ['Signed', 'POC passed', 'Prepayment in escrow', 'Nodes handed over', 'Clear Verified', 'Live']
 
 export default function Home({ me, session, acct, marks, contracts, requests, setTab, setFocus, setPrefill }) {
   const rows = Object.entries(acct.positions).map(([k, p]) => ({ k, ...p, mark: marks[k], pnl: p.qty * SIZE * (marks[k] - p.avg), notional: Math.abs(p.qty) * SIZE * marks[k] }))
   const upnl = rows.reduce((a, r) => a + r.pnl, 0)
   const im = rows.reduce((a, r) => a + r.notional * IM_RATE, 0)
   const mine = contracts.filter((c) => c.buyer === me.name || c.provider === me.name)
-  const escrow = mine.filter((c) => c.buyer === me.name && c.stage >= 1).reduce((a, c) => a + c.gpus * SIZE * c.price, 0)
-  const bonds = mine.filter((c) => c.provider === me.name && c.stage >= 2).reduce((a, c) => a + c.gpus * SIZE * c.price, 0)
+  const escrow = mine.filter((c) => c.buyer === me.name && c.stage >= 2 && !c.broken).reduce((a, c) => a + c.gpus * SIZE * c.price, 0)
+  const bonds = mine.filter((c) => c.provider === me.name && c.stage >= 2 && !c.broken).reduce((a, c) => a + c.gpus * SIZE * c.price, 0)
   const equity = acct.cash + upnl
   const excess = equity - im
   const hedged = rows.reduce((a, r) => a + r.qty * SIZE, 0)
@@ -51,15 +51,15 @@ export default function Home({ me, session, acct, marks, contracts, requests, se
             <i style={{ width: `${(im / total) * 100}%`, background: '#e8e2b9' }} title="Initial margin" />
             <i style={{ width: `${(Math.max(excess, 0) / total) * 100}%`, background: '#3a3936' }} title="Excess" />
             <i style={{ width: `${(escrow / total) * 100}%`, background: '#8fa9d6' }} title="Escrow" />
-            <i style={{ width: `${(bonds / total) * 100}%`, background: '#7cc59a' }} title="Bonds" />
+            <i style={{ width: `${(bonds / total) * 100}%`, background: '#7cc59a' }} title="Escrow owed to you" />
           </div>
           <div className="legend">
             <span><b style={{ background: '#e8e2b9' }} />Initial margin at FCM <em>{usd(im)}</em></span>
             <span><b style={{ background: '#3a3936' }} />Excess (withdrawable) <em>{usd(excess)}</em></span>
             <span><b style={{ background: '#8fa9d6' }} />Clear Escrow (buyer) <em>{usd(escrow)}</em></span>
-            <span><b style={{ background: '#7cc59a' }} />Performance bonds <em>{usd(bonds)}</em></span>
+            <span><b style={{ background: '#7cc59a' }} />Escrow owed to you <em>{usd(bonds)}</em></span>
           </div>
-          <p className="note" style={{ marginBottom: 0 }}>Futures margin sits with your FCM and the DCO. Escrow and bonds sit with the escrow agent. Compute Desk Exchange holds neither.</p>
+          <p className="note" style={{ marginBottom: 0 }}>Futures margin sits with your FCM and the DCO. Prepayments sit with the escrow agent. Compute Desk Exchange holds neither.</p>
         </Panel>
 
         <Panel title="For you" right={<span className="meth">Insight</span>}>

@@ -53,3 +53,15 @@
 @media (max-width:700px){.cv-form{grid-template-columns:1fr}}
 .cv-form label{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--muted)}
 .cv-form select,.cv-form input{background:var(--bg);border:1px solid var(--line-strong);border-radius:7px;color:var(--fg);padding:8px 10px;font:inherit;font-family:var(--mono)}
+.cv-offer{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px;align-items:center;text-align:left;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;color:var(--fg);cursor:pointer;font:inherit}
+.cv-offer.on{border-color:var(--cream);box-shadow:0 0 0 1px var(--cream) inset}
+.cv-offer.tried{opacity:.5;cursor:not-allowed}
+.cv-offer .mono{font-family:var(--mono);color:var(--cream)}
+.cv-chat{list-style:none;margin:12px 0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:200px;overflow:auto}
+.cv-chat li{font-size:12.5px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 10px;color:var(--muted);max-width:92%}
+.cv-chat li b{color:var(--fg);font-weight:500;margin-right:4px}
+.cv-chat li.me{align-self:flex-end;border-color:var(--line-strong)}
+.cv-poc{display:flex;gap:4px;margin-bottom:12px}
+.cv-poc i{flex:1;height:10px;border-radius:3px;background:var(--raise);border:1px solid var(--line-strong)}
+.cv-poc i.ok{background:var(--good);border-color:var(--good)}
+.cv-poc i.bad{background:var(--crit);border-color:var(--crit)}

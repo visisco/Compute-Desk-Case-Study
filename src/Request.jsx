@@ -3,7 +3,7 @@ import { SKUS, MONTHS, SIZE, TICK, INSTRUMENTS, fmt, usd, sym, skuOf, roundTick 
 import { Panel, Seg, Stat, Steps } from './ui.jsx'
 import { candles, top } from './market.js'
 
-const D_STEPS = ['Signed', 'Clear Escrow funded', 'Bond posted', 'Nodes handed over', 'Clear Verified', 'Live']
+const D_STEPS = ['Signed', 'POC passed', 'Prepayment in escrow', 'Nodes handed over', 'Clear Verified', 'Live']
 
 const stripOf = (r) => { const i0 = MONTHS.indexOf(r.start); return MONTHS.slice(i0, i0 + r.term).map((m) => sym(r.sku, m)) }
 const refPrice = (r, marks) => (r.kind === 'EFP' ? stripOf(r).reduce((a, s) => a + marks[s], 0) / r.term : SKUS[r.sku].index)
@@ -121,41 +121,50 @@ function Detail({ r, me, session, marks, award, providerQuote, openContract }) {
 }
 
 /* ---------- Delivery tracker ---------- */
+// Remedy for a failed check or SLA breach: a cure window, then the buyer's break clause.
+// No backup provider and no performance bond in v1.
 function Delivery({ c, updateContract }) {
   const monthly = c.gpus * SIZE * c.price
   const closed = c.month >= c.months
+  const ended = closed || c.broken
+  const prepaid = c.prepay === '25% upfront' ? 0.25 * monthly * c.months : monthly
   const step = (fn) => updateContract(c.id, fn)
   const advance = () => step((x) => {
     const n = Math.min(5, x.stage + 1)
-    const msgs = ['', `Clear Escrow funded: month 1 ${usd(monthly)}`, `Performance bond posted: ${usd(monthly)}`, `Nodes handed over: ${x.gpus / 8} nodes`, 'Clear Verified: SKU, GPU count, memory and interconnect match the contract', 'Delivery live: daily health checks running']
+    const msgs = ['', 'POC passed: 1 node, Clear Verified', `Prepayment in Clear Escrow: ${usd(prepaid)} (${c.prepay || 'Monthly in advance'})`, `Nodes handed over: ${x.gpus / 8} nodes`, 'Clear Verified: SKU, GPU count, memory and interconnect match the contract', 'Delivery live: daily health checks running']
     return { ...x, stage: n, uptime: n >= 4 ? 99.8 : 0, log: [...x.log, msgs[n]] }
   })
-  const fail = () => step((x) => ({ ...x, failed: true, log: [...x.log, `Clear Verified failed: ${Math.max(1, x.gpus / 32)} nodes show degraded interconnect. Escrow held.`] }))
-  const cure = () => step((x) => ({ ...x, failed: false, stage: 5, uptime: 99.6, log: [...x.log, `Cure: backup provider substituted at +$0.05. Difference ${usd(0.05 * x.gpus * SIZE * (x.months - x.month))} drawn from the bond. Clear Verified passed.`] }))
+  const fail = () => step((x) => ({ ...x, failed: true, log: [...x.log, x.stage === 5 ? 'SLA breach: uptime 96.1% over 7 days vs 99.5%. Cure notice sent, 72h window.' : `Clear Verified failed: ${Math.max(1, x.gpus / 32)} nodes show degraded interconnect. Cure notice sent, 72h window.`] }))
+  const cure = () => step((x) => ({ ...x, failed: false, stage: 5, uptime: 99.6, log: [...x.log, 'Provider fixed the nodes inside the cure window. Clear Verified passed.'] }))
+  const breakLease = () => step((x) => {
+    const refund = x.prepay === '25% upfront' ? Math.max(0, prepaid - 0.25 * monthly * x.month) : monthly
+    return { ...x, failed: false, broken: true, log: [...x.log, `Cure window expired. Buyer exercised the break clause: lease ended, ${usd(refund)} unused prepayment refunded from Clear Escrow. The futures leg is not unwound.`] }
+  })
   const settle = () => step((x) => {
     const m = x.month + 1, up = 99.2 + Math.random() * 0.7, credit = up < 99.5 ? monthly * 0.02 : 0
-    return { ...x, month: m, uptime: up, log: [...x.log, `Month ${m} settled: ${(x.gpus * SIZE).toLocaleString()} verified GPU-hrs, uptime ${up.toFixed(2)}%${credit ? `, SLA credit ${usd(credit)}` : ''}. Escrow paid ${usd(monthly - credit)} to the provider.` + (m >= x.months ? ' Term complete: bond released.' : '')] }
+    return { ...x, month: m, uptime: up, log: [...x.log, `Month ${m} settled: ${(x.gpus * SIZE).toLocaleString()} verified GPU-hrs, uptime ${up.toFixed(2)}%${credit ? `, SLA credit ${usd(credit)}` : ''}. Escrow paid ${usd(monthly - credit)} to the provider.` + (m >= x.months ? ' Term complete.' : '')] }
   })
   return (
     <Panel title={`${c.id} · ${c.sku} × ${c.gpus} · ${c.start} for ${c.months} mo · via ${c.via}`} right={<span className="meth">Clear Verified methodology</span>}>
       <div className="stack">
-        <Steps items={D_STEPS} at={closed ? 6 : c.stage} bad={c.failed ? 4 : undefined} />
+        <Steps items={D_STEPS} at={closed ? 6 : c.stage} bad={c.failed ? (c.stage === 5 ? 5 : 4) : undefined} />
         <div className="stats">
           <Stat k="Price" v={'$' + fmt(c.price, 3)} cls="cream" />
-          <Stat k="Monthly escrow" v={usd(monthly)} />
-          <Stat k="Bond" v={usd(monthly)} />
-          <Stat k="Uptime (30d)" v={c.stage >= 4 && !c.failed ? c.uptime.toFixed(2) + '%' : '—'} cls={c.uptime >= 99.5 ? 'up' : c.uptime ? 'dn' : ''} />
+          <Stat k="Monthly value" v={usd(monthly)} />
+          <Stat k="Prepayment" v={usd(prepaid)} sub={c.prepay || 'Monthly in advance'} />
+          <Stat k="Uptime (30d)" v={c.stage >= 4 && !c.failed && !c.broken ? c.uptime.toFixed(2) + '%' : '—'} cls={c.uptime >= 99.5 ? 'up' : c.uptime ? 'dn' : ''} />
           <Stat k="Buyer / provider" v={`${c.buyer.split(' ')[0]} / ${c.provider.split(' ').slice(0, 2).join(' ')}`} />
         </div>
         <div className="row">
-          {c.stage < 3 && <button className="btn" onClick={advance}>Next: {D_STEPS[c.stage + 1]}</button>}
-          {c.stage === 3 && !c.failed && <><button className="btn" onClick={advance}>Run Clear Verified check</button><button className="btn ghost" onClick={fail}>Fail the check</button></>}
-          {c.failed && <button className="btn" onClick={cure}>Cure with backup provider</button>}
-          {c.stage === 4 && !c.failed && <button className="btn" onClick={advance}>Go live</button>}
-          {c.stage === 5 && !closed && <button className="btn" onClick={settle}>Settle month {c.month + 1}</button>}
-          {closed && <span className="pill good">Contract complete · bond released</span>}
+          {!ended && !c.failed && c.stage < 3 && <button className="btn" onClick={advance}>Next: {D_STEPS[c.stage + 1]}</button>}
+          {!ended && c.stage === 3 && !c.failed && <><button className="btn" onClick={advance}>Run Clear Verified check</button><button className="btn ghost" onClick={fail}>Fail the check</button></>}
+          {!ended && c.failed && <><button className="btn" onClick={cure}>Provider cures in 72h</button><button className="btn ghost" onClick={breakLease}>Cure fails: break the lease</button></>}
+          {!ended && c.stage === 4 && !c.failed && <button className="btn" onClick={advance}>Go live</button>}
+          {!ended && c.stage === 5 && !c.failed && <><button className="btn" onClick={settle}>Settle month {c.month + 1}</button><button className="btn ghost" onClick={fail}>Simulate SLA breach</button></>}
+          {closed && !c.broken && <span className="pill good">Contract complete</span>}
+          {c.broken && <span className="pill crit">Lease ended under break clause</span>}
         </div>
-        {c.failed && <div className="callout crit">No money moves while the check fails. The futures leg is not unwound; the cure happens inside the physical contract.</div>}
+        {c.failed && <div className="callout crit">No money moves while the breach is open. If the provider doesn't fix it inside the cure window, the buyer can break the lease and get unused prepayment back. The futures leg is not unwound.</div>}
         <div><div className="eyebrow">Event log</div><ol className="log">{[...c.log].reverse().map((l, i) => <li key={i}>{l}</li>)}</ol></div>
       </div>
     </Panel>
@@ -440,7 +449,7 @@ export default function Request(props) {
       foot={<>{x.status === 'done' ? 'Traded' : 'Best'} <b className="cream mono">{x.status === 'done' ? fmt(x.done.px) : best != null ? fmt(best) : '—'}</b> · screen {fmt(ref0)}</>} />
   }
   const delCard = (c) => <Card key={c.id} on={cur?.key === c.id} onClick={() => open(c.id)} kind="Delivery" title={`${c.sku} × ${c.gpus} · ${c.months} mo`} sub={`${c.id} · via ${c.via} · ${c.provider}`}
-    status={c.stage === 5 ? `Live · ${c.month}/${c.months}` : D_STEPS[c.stage]} statusCls={c.failed ? 'crit' : 'good'}
+    status={c.broken ? 'Ended · break clause' : c.stage === 5 ? `Live · ${c.month}/${c.months}` : D_STEPS[c.stage]} statusCls={c.failed || c.broken ? 'crit' : 'good'}
     ladder={<div className="dsteps">{D_STEPS.map((d, i) => <i key={d} className={i <= c.stage ? 'on' : ''} title={d} />)}</div>} />
   const card = (i) => (i.r ? physCard(i.r) : i.x ? sprCard(i.x) : delCard(i.c))
   const section = (sec, title, empty) => {
